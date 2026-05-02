@@ -1,0 +1,175 @@
+/**
+ * Bangla Track Admin Server Styles
+ */
+
+/* Dashboard */
+.bt-server-dashboard h1 {
+    margin-bottom: 20px;
+}
+
+.bt-server-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.bt-server-stat-card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: box-shadow 0.2s;
+}
+
+.bt-server-stat-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.bt-server-stat-card .stat-icon {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    color: #0073aa;
+}
+
+.bt-server-stat-card.stat-success .stat-icon { color: #1B8423; }
+.bt-server-stat-card.stat-warning .stat-icon { color: #dba617; }
+.bt-server-stat-card.stat-info .stat-icon { color: #0073aa; }
+
+.bt-server-stat-card .stat-number {
+    display: block;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #1d2327;
+}
+
+.bt-server-stat-card .stat-label {
+    font-size: 13px;
+    color: #646970;
+}
+
+/* Dashboard Row */
+.bt-server-dashboard-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 1200px) {
+    .bt-server-dashboard-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Cards */
+.bt-server-card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.bt-server-card h2,
+.bt-server-card h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+/* Quick Actions */
+.bt-server-quick-actions .button {
+    display: block;
+    width: 100%;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.bt-server-quick-actions .button-hero {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 20px;
+    height: auto;
+    font-size: 14px;
+}
+
+.bt-server-quick-actions .button-hero .dashicons {
+    margin-right: 8px;
+}
+
+.bt-server-quick-actions hr {
+    margin: 20px 0;
+}
+
+.bt-server-quick-actions code {
+    display: block;
+    padding: 10px;
+    background: #f6f7f7;
+    word-break: break-all;
+    font-size: 11px;
+}
+
+/* No data */
+.bt-server-no-data {
+    color: #646970;
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}
+
+/* Status badges */
+.bt-status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.bt-status-active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.bt-status-expired {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.bt-status-revoked {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Tables */
+.bt-server-dashboard table code,
+.bt-server-licenses table code,
+.bt-server-activations table code {
+    background: #f6f7f7;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.bt-server-activations .dashicons-external {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
+}
+
+/* Licenses page */
+.bt-server-licenses .form-table th {
+    width: 200px;
+}
+
+/* Subsubsub filter */
+.bt-server-activations .subsubsub {
+    margin-bottom: 10px;
+}
