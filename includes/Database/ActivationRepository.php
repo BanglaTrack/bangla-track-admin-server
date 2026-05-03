@@ -1,235 +1,85 @@
 <?php
-/**
- * Activation Repository for Bangla Track Admin Server.
- *
- * @package BanglaTrackServer\Database
- */
-
 namespace BanglaTrackServer\Database;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-/**
- * Class ActivationRepository
- */
 class ActivationRepository {
-
-    /**
-     * Get all activations.
-     *
-     * @param array $args Query arguments.
-     * @return array
-     */
     public function get_all( $args = array() ) {
         global $wpdb;
-
-        $defaults = array(
-            'license_id' => 0,
-            'is_active'  => null,
-            'limit'      => 20,
-            'offset'     => 0,
-            'orderby'    => 'activated_at',
-            'order'      => 'DESC',
-        );
-
-        $args  = wp_parse_args( $args, $defaults );
+        $args = wp_parse_args( $args, array( 'license_id' => 0, 'is_active' => null, 'limit' => 20, 'offset' => 0, 'orderby' => 'activated_at', 'order' => 'DESC' ) );
         $table = Installer::get_activations_table();
-        $licenses_table = Installer::get_licenses_table();
+        $licenses = Installer::get_licenses_table();
         $where = '1=1';
-
-        if ( $args['license_id'] > 0 ) {
-            $where .= $wpdb->prepare( ' AND a.license_id = %d', $args['license_id'] );
-        }
-
-        if ( $args['is_active'] !== null ) {
-            $where .= $wpdb->prepare( ' AND a.is_active = %d', $args['is_active'] );
-        }
-
+        if ( $args['license_id'] > 0 ) { $where .= $wpdb->prepare( ' AND a.license_id = %d', absint( $args['license_id'] ) ); }
+        if ( null !== $args['is_active'] ) { $where .= $wpdb->prepare( " AND a.status = %s", $args['is_active'] ? 'active' : 'inactive' ); }
         $orderby = sanitize_sql_orderby( 'a.' . $args['orderby'] . ' ' . $args['order'] );
-        
-        // If sanitize_sql_orderby returns false, use default ordering
-        if ( ! $orderby ) {
-            $orderby = 'a.activated_at DESC';
-        }
-        
-        $limit   = absint( $args['limit'] );
-        $offset  = absint( $args['offset'] );
-
-        return $wpdb->get_results(
-            "SELECT a.*, l.license_key, l.customer_email, l.customer_name 
-             FROM {$table} a 
-             LEFT JOIN {$licenses_table} l ON a.license_id = l.id 
-             WHERE {$where} 
-             ORDER BY {$orderby} 
-             LIMIT {$limit} OFFSET {$offset}"
-        );
+        if ( ! $orderby ) { $orderby = 'a.activated_at DESC'; }
+        return $wpdb->get_results( "SELECT a.*, l.license_key, l.customer_email, l.customer_name FROM {$table} a LEFT JOIN {$licenses} l ON a.license_id = l.id WHERE {$where} ORDER BY {$orderby} LIMIT " . absint( $args['limit'] ) . " OFFSET " . absint( $args['offset'] ) );
     }
 
-    /**
-     * Get activation by license ID and site URL.
-     *
-     * @param int    $license_id License ID.
-     * @param string $site_url   Site URL.
-     * @return object|null
-     */
     public function get_by_license_and_site( $license_id, $site_url ) {
         global $wpdb;
         $table = Installer::get_activations_table();
-
-        $site_url = $this->normalize_url( $site_url );
-
-        return $wpdb->get_row( $wpdb->prepare(
-            "SELECT * FROM {$table} WHERE license_id = %d AND site_url = %s",
-            $license_id,
-            $site_url
-        ) );
+        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE license_id = %d AND site_url = %s", absint( $license_id ), $this->normalize_url( $site_url ) ) );
     }
 
-    /**
-     * Get active activation count for a license.
-     *
-     * @param int $license_id License ID.
-     * @return int
-     */
     public function get_active_count( $license_id ) {
         global $wpdb;
         $table = Installer::get_activations_table();
-
-        return (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table} WHERE license_id = %d AND is_active = 1",
-            $license_id
-        ) );
+        return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE license_id = %d AND status = %s", absint( $license_id ), 'active' ) );
     }
 
-    /**
-     * Activate a license on a site.
-     *
-     * @param int   $license_id License ID.
-     * @param array $site_data  Site data.
-     * @return int|false Activation ID or false on failure.
-     */
     public function activate( $license_id, $site_data ) {
         global $wpdb;
         $table = Installer::get_activations_table();
-
         $site_url = $this->normalize_url( $site_data['site_url'] ?? '' );
-
         $existing = $this->get_by_license_and_site( $license_id, $site_url );
-
         if ( $existing ) {
-            $wpdb->update(
-                $table,
-                array(
-                    'is_active'      => 1,
-                    'site_name'      => $site_data['site_name'] ?? '',
-                    'wp_version'     => $site_data['wp_version'] ?? '',
-                    'plugin_version' => $site_data['plugin_version'] ?? '',
-                    'php_version'    => $site_data['php_version'] ?? '',
-                    'last_check'     => current_time( 'mysql' ),
-                ),
-                array( 'id' => $existing->id )
-            );
-            return $existing->id;
+            $wpdb->update( $table, array(
+                'status' => 'active', 'site_name' => sanitize_text_field( $site_data['site_name'] ?? '' ),
+                'wp_version' => sanitize_text_field( $site_data['wp_version'] ?? '' ), 'plugin_version' => sanitize_text_field( $site_data['plugin_version'] ?? '' ),
+                'php_version' => sanitize_text_field( $site_data['php_version'] ?? '' ), 'last_seen_at' => current_time( 'mysql' ),
+            ), array( 'id' => absint( $existing->id ) ) );
+            return (int) $existing->id;
         }
 
-        $result = $wpdb->insert(
-            $table,
-            array(
-                'license_id'     => $license_id,
-                'site_url'       => $site_url,
-                'site_name'      => $site_data['site_name'] ?? '',
-                'wp_version'     => $site_data['wp_version'] ?? '',
-                'plugin_version' => $site_data['plugin_version'] ?? '',
-                'php_version'    => $site_data['php_version'] ?? '',
-                'is_active'      => 1,
-            )
-        );
-
-        return $result ? $wpdb->insert_id : false;
+        $ok = $wpdb->insert( $table, array(
+            'license_id' => absint( $license_id ), 'site_url' => $site_url,
+            'site_name' => sanitize_text_field( $site_data['site_name'] ?? '' ), 'wp_version' => sanitize_text_field( $site_data['wp_version'] ?? '' ),
+            'plugin_version' => sanitize_text_field( $site_data['plugin_version'] ?? '' ), 'php_version' => sanitize_text_field( $site_data['php_version'] ?? '' ),
+            'status' => 'active', 'last_seen_at' => current_time( 'mysql' ),
+        ) );
+        return $ok ? (int) $wpdb->insert_id : false;
     }
 
-    /**
-     * Deactivate a license from a site.
-     *
-     * @param int    $license_id License ID.
-     * @param string $site_url   Site URL.
-     * @return bool
-     */
     public function deactivate( $license_id, $site_url ) {
         global $wpdb;
-        $table = Installer::get_activations_table();
-
-        $site_url = $this->normalize_url( $site_url );
-
-        return $wpdb->update(
-            $table,
-            array( 'is_active' => 0 ),
-            array( 'license_id' => $license_id, 'site_url' => $site_url )
-        ) !== false;
+        return $wpdb->update( Installer::get_activations_table(), array( 'status' => 'inactive' ), array( 'license_id' => absint( $license_id ), 'site_url' => $this->normalize_url( $site_url ) ) ) !== false;
     }
 
-    /**
-     * Update last check time.
-     *
-     * @param int $activation_id Activation ID.
-     * @return bool
-     */
     public function update_last_check( $activation_id ) {
         global $wpdb;
-        $table = Installer::get_activations_table();
-
-        return $wpdb->update(
-            $table,
-            array( 'last_check' => current_time( 'mysql' ) ),
-            array( 'id' => $activation_id )
-        ) !== false;
+        return $wpdb->update( Installer::get_activations_table(), array( 'last_seen_at' => current_time( 'mysql' ) ), array( 'id' => absint( $activation_id ) ) ) !== false;
     }
 
-    /**
-     * Get activation statistics.
-     *
-     * @return array
-     */
     public function get_stats() {
         global $wpdb;
         $table = Installer::get_activations_table();
-
-        $total  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-        $active = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE is_active = 1" );
-
-        return compact( 'total', 'active' );
+        return array( 'total' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" ), 'active' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'active'" ) );
     }
 
-    /**
-     * Get total count.
-     *
-     * @param bool|null $is_active Filter by active status.
-     * @return int
-     */
     public function get_count( $is_active = null ) {
         global $wpdb;
         $table = Installer::get_activations_table();
-        $where = '1=1';
-
-        if ( $is_active !== null ) {
-            $where .= $wpdb->prepare( ' AND is_active = %d', $is_active );
-        }
-
-        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE {$where}" );
+        if ( null === $is_active ) { return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" ); }
+        return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE status = %s", $is_active ? 'active' : 'inactive' ) );
     }
 
-    /**
-     * Normalize a URL for comparison.
-     *
-     * @param string $url URL to normalize.
-     * @return string
-     */
     private function normalize_url( $url ) {
-        $url = strtolower( trim( $url ) );
-        $url = preg_replace( '#^https?://#', '', $url );
-        $url = rtrim( $url, '/' );
-        return $url;
+        $url = esc_url_raw( trim( (string) $url ) );
+        $url = preg_replace( '#^https?://#', '', strtolower( $url ) );
+        return rtrim( $url, '/' );
     }
 }

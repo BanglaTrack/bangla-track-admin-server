@@ -10,6 +10,7 @@ namespace BanglaTrackServer;
 use BanglaTrackServer\Admin\Dashboard;
 use BanglaTrackServer\Admin\LicensesPage;
 use BanglaTrackServer\Admin\ActivationsPage;
+use BanglaTrackServer\Database\Installer;
 use BanglaTrackServer\REST\LicenseController;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -60,6 +61,7 @@ class Bootstrap {
 
         add_action( 'rest_api_init', array( $this, 'init_rest_api' ) );
         add_action( 'init', array( $this, 'load_textdomain' ) );
+        add_action( 'admin_init', array( Installer::class, 'maybe_migrate' ) );
     }
 
     /**

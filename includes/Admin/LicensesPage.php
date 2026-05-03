@@ -48,6 +48,7 @@ class LicensesPage {
             $data = array(
                 'customer_email'  => sanitize_email( wp_unslash( $_POST['customer_email'] ?? '' ) ),
                 'customer_name'   => sanitize_text_field( wp_unslash( $_POST['customer_name'] ?? '' ) ),
+                'plan'            => in_array( sanitize_text_field( wp_unslash( $_POST['plan'] ?? 'free' ) ), array( 'free', 'pro' ), true ) ? sanitize_text_field( wp_unslash( $_POST['plan'] ?? 'free' ) ) : 'free',
                 'max_activations' => absint( $_POST['max_activations'] ?? 1 ),
                 'expires_at'      => ! empty( $_POST['expires_at'] ) ? sanitize_text_field( wp_unslash( $_POST['expires_at'] ) ) : null,
             );
@@ -59,9 +60,23 @@ class LicensesPage {
             }
         }
 
+        if ( isset( $_POST['bt_update_license'] ) && check_admin_referer( 'bt_update_license' ) ) {
+            $license_id = absint( $_POST['license_id'] ?? 0 );
+            if ( $license_id > 0 ) {
+                $plan = sanitize_text_field( wp_unslash( $_POST['plan'] ?? 'free' ) );
+                $status = sanitize_text_field( wp_unslash( $_POST['status'] ?? 'active' ) );
+                $this->repo->update( $license_id, array(
+                    'plan'   => in_array( $plan, array( 'free', 'pro' ), true ) ? $plan : 'free',
+                    'status' => in_array( $status, array( 'active', 'expired', 'disabled', 'cancelled' ), true ) ? $status : 'active',
+                ) );
+                wp_safe_redirect( admin_url( 'admin.php?page=bt-server-licenses&updated=1' ) );
+                exit;
+            }
+        }
+
         if ( isset( $_GET['action'] ) && 'revoke' === $_GET['action'] && isset( $_GET['id'] ) ) {
             if ( check_admin_referer( 'bt_revoke_license' ) ) {
-                $this->repo->update( absint( $_GET['id'] ), array( 'status' => 'revoked' ) );
+                $this->repo->update( absint( $_GET['id'] ), array( 'status' => 'disabled' ) );
                 wp_safe_redirect( admin_url( 'admin.php?page=bt-server-licenses&revoked=1' ) );
                 exit;
             }
@@ -116,6 +131,15 @@ class LicensesPage {
                             <td><input type="email" id="customer_email" name="customer_email" class="regular-text"></td>
                         </tr>
                         <tr>
+                            <th><label for="plan"><?php esc_html_e( 'Plan', 'bangla-track-server' ); ?></label></th>
+                            <td>
+                                <select id="plan" name="plan">
+                                    <option value="free"><?php esc_html_e( 'Free', 'bangla-track-server' ); ?></option>
+                                    <option value="pro"><?php esc_html_e( 'Pro', 'bangla-track-server' ); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
                             <th><label for="max_activations"><?php esc_html_e( 'Max Activations', 'bangla-track-server' ); ?></label></th>
                             <td>
                                 <input type="number" id="max_activations" name="max_activations" value="1" min="1" max="100" class="small-text">
@@ -162,6 +186,9 @@ class LicensesPage {
                 </p>
             </div>
         <?php endif; ?>
+        <?php if ( isset( $_GET['updated'] ) ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'License updated.', 'bangla-track-server' ); ?></p></div>
+        <?php endif; ?>
 
         <div class="wrap bt-server-licenses">
             <h1>
@@ -177,6 +204,7 @@ class LicensesPage {
                         <th><?php esc_html_e( 'License Key', 'bangla-track-server' ); ?></th>
                         <th><?php esc_html_e( 'Customer', 'bangla-track-server' ); ?></th>
                         <th><?php esc_html_e( 'Status', 'bangla-track-server' ); ?></th>
+                        <th><?php esc_html_e( 'Plan', 'bangla-track-server' ); ?></th>
                         <th><?php esc_html_e( 'Activations', 'bangla-track-server' ); ?></th>
                         <th><?php esc_html_e( 'Expires', 'bangla-track-server' ); ?></th>
                         <th><?php esc_html_e( 'Actions', 'bangla-track-server' ); ?></th>
@@ -185,7 +213,7 @@ class LicensesPage {
                 <tbody>
                     <?php if ( empty( $licenses ) ) : ?>
                         <tr>
-                            <td colspan="6"><?php esc_html_e( 'No licenses found.', 'bangla-track-server' ); ?></td>
+                            <td colspan="7"><?php esc_html_e( 'No licenses found.', 'bangla-track-server' ); ?></td>
                         </tr>
                     <?php else : ?>
                         <?php foreach ( $licenses as $license ) : 
@@ -204,6 +232,7 @@ class LicensesPage {
                                         <?php echo esc_html( ucfirst( $license->status ) ); ?>
                                     </span>
                                 </td>
+                                <td><?php echo esc_html( strtoupper( $license->plan ) ); ?></td>
                                 <td><?php echo esc_html( $active_count . ' / ' . $license->max_activations ); ?></td>
                                 <td><?php echo $license->expires_at ? esc_html( date_i18n( 'M j, Y', strtotime( $license->expires_at ) ) ) : '—'; ?></td>
                                 <td>
@@ -216,6 +245,21 @@ class LicensesPage {
                                             <?php esc_html_e( 'Activate', 'bangla-track-server' ); ?>
                                         </a>
                                     <?php endif; ?>
+                                    <form method="post" style="margin-top:8px;">
+                                        <?php wp_nonce_field( 'bt_update_license' ); ?>
+                                        <input type="hidden" name="license_id" value="<?php echo esc_attr( $license->id ); ?>" />
+                                        <select name="plan">
+                                            <option value="free" <?php selected( $license->plan, 'free' ); ?>><?php esc_html_e( 'Free', 'bangla-track-server' ); ?></option>
+                                            <option value="pro" <?php selected( $license->plan, 'pro' ); ?>><?php esc_html_e( 'Pro', 'bangla-track-server' ); ?></option>
+                                        </select>
+                                        <select name="status">
+                                            <option value="active" <?php selected( $license->status, 'active' ); ?>><?php esc_html_e( 'Active', 'bangla-track-server' ); ?></option>
+                                            <option value="expired" <?php selected( $license->status, 'expired' ); ?>><?php esc_html_e( 'Expired', 'bangla-track-server' ); ?></option>
+                                            <option value="disabled" <?php selected( $license->status, 'disabled' ); ?>><?php esc_html_e( 'Disabled', 'bangla-track-server' ); ?></option>
+                                            <option value="cancelled" <?php selected( $license->status, 'cancelled' ); ?>><?php esc_html_e( 'Cancelled', 'bangla-track-server' ); ?></option>
+                                        </select>
+                                        <button type="submit" name="bt_update_license" class="button button-small"><?php esc_html_e( 'Save', 'bangla-track-server' ); ?></button>
+                                    </form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
