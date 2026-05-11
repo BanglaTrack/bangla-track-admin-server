@@ -23,9 +23,20 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
-          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          printf '%s\n' "${{ secrets.SERVER_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p "${{ secrets.SERVER_PORT }}" "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+          touch ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null
+
+      - name: Test SSH connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -p "${{ secrets.SERVER_PORT }}" -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=15 \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" "echo connected"
 
       - name: Deploy via rsync
         shell: bash
@@ -35,7 +46,7 @@ jobs:
             --exclude ".git/" \
             --exclude ".github/" \
             --exclude "*.zip" \
-            -e "ssh -p ${{ secrets.SERVER_PORT }} -i ~/.ssh/id_rsa" \
+            -e "ssh -p ${{ secrets.SERVER_PORT }} -i ~/.ssh/id_rsa -o StrictHostKeyChecking=accept-new" \
             ./ \
             "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PLUGIN_PATH }}/"
 
