@@ -12,6 +12,7 @@ use BanglaTrackServer\Admin\LicensesPage;
 use BanglaTrackServer\Admin\ActivationsPage;
 use BanglaTrackServer\Database\Installer;
 use BanglaTrackServer\REST\LicenseController;
+use BanglaTrackServer\WooCommerce\ProductLicenseFields;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -57,6 +58,11 @@ class Bootstrap {
         if ( is_admin() ) {
             add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
             add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+
+            if ( class_exists( 'WooCommerce' ) ) {
+                $product_license_fields = new ProductLicenseFields();
+                $product_license_fields->register_hooks();
+            }
         }
 
         add_action( 'rest_api_init', array( $this, 'init_rest_api' ) );
