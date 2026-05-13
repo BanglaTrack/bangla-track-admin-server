@@ -51,6 +51,7 @@ class LicenseEntitlementManager {
      */
     public function register_hooks() {
         add_action( 'init', array( $this, 'register_account_endpoint' ) );
+        add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
         add_filter( 'query_vars', array( $this, 'register_query_vars' ), 0 );
         add_filter( 'woocommerce_account_menu_items', array( $this, 'add_my_account_menu_item' ) );
         add_action( 'woocommerce_account_' . self::ACCOUNT_ENDPOINT . '_endpoint', array( $this, 'render_my_account_dashboard' ) );
@@ -62,6 +63,45 @@ class LicenseEntitlementManager {
         add_action( 'woocommerce_order_status_completed', array( $this, 'handle_order_completed' ), 20, 1 );
         add_action( 'admin_post_bt_generate_license_key', array( $this, 'handle_generate_license_request' ) );
         add_action( 'admin_post_nopriv_bt_generate_license_key', array( $this, 'handle_generate_license_request' ) );
+    }
+
+    /**
+     * Load account endpoint assets.
+     *
+     * @return void
+     */
+    public function enqueue_frontend_assets() {
+        if ( ! function_exists( 'is_account_page' ) || ! is_account_page() ) {
+            return;
+        }
+
+        if ( function_exists( 'is_wc_endpoint_url' ) && ! is_wc_endpoint_url( self::ACCOUNT_ENDPOINT ) ) {
+            return;
+        }
+
+        wp_enqueue_style(
+            'bt-server-account',
+            BT_SERVER_PLUGIN_URL . 'assets/css/account.css',
+            array(),
+            BT_SERVER_VERSION
+        );
+
+        wp_enqueue_script(
+            'bt-server-account',
+            BT_SERVER_PLUGIN_URL . 'assets/js/account.js',
+            array(),
+            BT_SERVER_VERSION,
+            true
+        );
+
+        wp_localize_script(
+            'bt-server-account',
+            'btServerAccount',
+            array(
+                'copyLabel'   => __( 'Copy', 'bangla-track-server' ),
+                'copiedLabel' => __( 'Copied', 'bangla-track-server' ),
+            )
+        );
     }
 
     /**
@@ -295,7 +335,9 @@ class LicenseEntitlementManager {
 
         $user_id       = get_current_user_id();
         $entitlements  = $this->entitlement_repo->get_for_user( $user_id );
-        $dashboard_url = wc_get_account_endpoint_url( self::ACCOUNT_ENDPOINT );
+        $dashboard_url = function_exists( 'wc_get_account_endpoint_url' )
+            ? wc_get_account_endpoint_url( self::ACCOUNT_ENDPOINT )
+            : home_url( '/' );
 
         if ( isset( $_GET['bt_license_message'] ) ) {
             $message = sanitize_key( (string) wp_unslash( $_GET['bt_license_message'] ) );
@@ -308,30 +350,68 @@ class LicenseEntitlementManager {
             }
         }
 
-        echo '<h3>' . esc_html__( 'Bangla Track Licenses', 'bangla-track-server' ) . '</h3>';
+        $total_count     = count( $entitlements );
+        $pending_count   = 0;
+        $generated_count = 0;
+
+        foreach ( $entitlements as $entitlement ) {
+            $status = sanitize_key( (string) $entitlement->status );
+            if ( 'pending' === $status ) {
+                $pending_count++;
+            } elseif ( 'generated' === $status ) {
+                $generated_count++;
+            }
+        }
+
+        echo '<section class="bt-account-licenses" aria-label="' . esc_attr__( 'Bangla Track Licenses', 'bangla-track-server' ) . '">';
+        echo '<header class="bt-account-licenses__header">';
+        echo '<h3 class="bt-account-licenses__title">' . esc_html__( 'Bangla Track Licenses', 'bangla-track-server' ) . '</h3>';
+        echo '<p class="bt-account-licenses__subtitle">' . esc_html__( 'Manage your purchased products and generate license keys when you are ready to activate.', 'bangla-track-server' ) . '</p>';
+        echo '<div class="bt-account-licenses__stats">';
+        echo '<span class="bt-stat-pill"><strong>' . esc_html( (string) $total_count ) . '</strong> ' . esc_html__( 'Purchased', 'bangla-track-server' ) . '</span>';
+        echo '<span class="bt-stat-pill bt-stat-pill--pending"><strong>' . esc_html( (string) $pending_count ) . '</strong> ' . esc_html__( 'Pending', 'bangla-track-server' ) . '</span>';
+        echo '<span class="bt-stat-pill bt-stat-pill--generated"><strong>' . esc_html( (string) $generated_count ) . '</strong> ' . esc_html__( 'Generated', 'bangla-track-server' ) . '</span>';
+        echo '</div>';
+        echo '</header>';
 
         if ( empty( $entitlements ) ) {
-            echo '<p>' . esc_html__( 'No Bangla Track purchase entitlement found yet.', 'bangla-track-server' ) . '</p>';
+            echo '<div class="bt-empty-state">';
+            echo '<h4>' . esc_html__( 'No license purchases found yet', 'bangla-track-server' ) . '</h4>';
+            echo '<p>' . esc_html__( 'After you buy a Bangla Track product, it will appear here so you can generate your license key.', 'bangla-track-server' ) . '</p>';
+            echo '</div>';
+            echo '</section>';
             return;
         }
+
+        echo '<div class="bt-license-list">';
 
         foreach ( $entitlements as $entitlement ) {
             $product_name = $this->get_product_name( $entitlement );
             $product_code = sanitize_key( (string) $entitlement->product_code );
             $order_number = absint( $entitlement->order_id );
+            $status       = sanitize_key( (string) $entitlement->status );
+            $status_label = $this->get_entitlement_status_label( $status );
+            $status_class = $this->get_entitlement_status_class( $status );
 
-            echo '<div style="border:1px solid #ddd;padding:16px;margin-bottom:16px;border-radius:4px;">';
-            echo '<p><strong>' . esc_html__( 'You have purchased:', 'bangla-track-server' ) . '</strong> ' . esc_html( $product_name ) . '</p>';
-            echo '<p><strong>' . esc_html__( 'Product code:', 'bangla-track-server' ) . '</strong> ' . esc_html( $product_code ) . '</p>';
-            echo '<p><strong>' . esc_html__( 'Order:', 'bangla-track-server' ) . '</strong> #' . esc_html( (string) $order_number ) . '</p>';
+            echo '<article class="bt-license-card">';
+            echo '<div class="bt-license-card__head">';
+            echo '<div class="bt-license-card__title-wrap">';
+            echo '<h4 class="bt-license-card__title">' . esc_html( $product_name ) . '</h4>';
+            echo '<p class="bt-license-card__order">' . esc_html__( 'Order', 'bangla-track-server' ) . ' #' . esc_html( (string) $order_number ) . '</p>';
+            echo '</div>';
+            echo '<span class="bt-status-pill ' . esc_attr( $status_class ) . '">' . esc_html( $status_label ) . '</span>';
+            echo '</div>';
+            echo '<div class="bt-license-card__meta">';
+            echo '<span class="bt-meta-chip">' . esc_html__( 'Product code', 'bangla-track-server' ) . ': <code>' . esc_html( $product_code ) . '</code></span>';
+            echo '</div>';
 
             if ( 'pending' === $entitlement->status ) {
-                echo '<p><strong>' . esc_html__( 'License status:', 'bangla-track-server' ) . '</strong> ' . esc_html__( 'License not generated yet', 'bangla-track-server' ) . '</p>';
-                echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+                echo '<p class="bt-license-card__note">' . esc_html__( 'License is not generated yet. Generate now to receive your activation key.', 'bangla-track-server' ) . '</p>';
+                echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="bt-license-card__actions">';
                 echo '<input type="hidden" name="action" value="bt_generate_license_key" />';
                 echo '<input type="hidden" name="entitlement_id" value="' . esc_attr( (string) absint( $entitlement->id ) ) . '" />';
                 wp_nonce_field( 'bt_generate_license_key_' . absint( $entitlement->id ), 'bt_generate_license_nonce' );
-                echo '<button type="submit" class="button">' . esc_html__( 'Generate License Key', 'bangla-track-server' ) . '</button>';
+                echo '<button type="submit" class="button bt-button-primary">' . esc_html__( 'Generate License Key', 'bangla-track-server' ) . '</button>';
                 echo '</form>';
             } elseif ( 'generated' === $entitlement->status && ! empty( $entitlement->license_key ) ) {
                 $license_key = strtoupper( sanitize_text_field( (string) $entitlement->license_key ) );
@@ -340,43 +420,29 @@ class LicenseEntitlementManager {
                 $starts_at   = $this->format_date_for_display( (string) $entitlement->starts_at );
                 $expires_at  = $this->format_expires_for_display( $entitlement->expires_at );
 
-                echo '<p><strong>' . esc_html__( 'License key:', 'bangla-track-server' ) . '</strong> <code>' . esc_html( $license_key ) . '</code></p>';
-                echo '<p><strong>' . esc_html__( 'Plan:', 'bangla-track-server' ) . '</strong> ' . esc_html( $plan_label ) . '</p>';
-                echo '<p><strong>' . esc_html__( 'Status:', 'bangla-track-server' ) . '</strong> ' . esc_html( ucfirst( $status ) ) . '</p>';
-                echo '<p><strong>' . esc_html__( 'Starts at:', 'bangla-track-server' ) . '</strong> ' . esc_html( $starts_at ) . '</p>';
-                echo '<p><strong>' . esc_html__( 'Expires at:', 'bangla-track-server' ) . '</strong> ' . esc_html( $expires_at ) . '</p>';
-                echo '<button type="button" class="button bt-copy-license-key" data-license="' . esc_attr( $license_key ) . '">' . esc_html__( 'Copy License Key', 'bangla-track-server' ) . '</button>';
+                echo '<div class="bt-license-key-box">';
+                echo '<div>';
+                echo '<span class="bt-license-key-box__label">' . esc_html__( 'License key', 'bangla-track-server' ) . '</span>';
+                echo '<code class="bt-license-key-box__value">' . esc_html( $license_key ) . '</code>';
+                echo '</div>';
+                echo '<button type="button" class="button bt-copy-license-key bt-button-ghost" data-license="' . esc_attr( $license_key ) . '">' . esc_html__( 'Copy', 'bangla-track-server' ) . '</button>';
+                echo '</div>';
+
+                echo '<dl class="bt-license-grid">';
+                echo '<div><dt>' . esc_html__( 'Plan', 'bangla-track-server' ) . '</dt><dd>' . esc_html( $plan_label ) . '</dd></div>';
+                echo '<div><dt>' . esc_html__( 'Status', 'bangla-track-server' ) . '</dt><dd>' . esc_html( ucfirst( $status ) ) . '</dd></div>';
+                echo '<div><dt>' . esc_html__( 'Starts at', 'bangla-track-server' ) . '</dt><dd>' . esc_html( $starts_at ) . '</dd></div>';
+                echo '<div><dt>' . esc_html__( 'Expires at', 'bangla-track-server' ) . '</dt><dd>' . esc_html( $expires_at ) . '</dd></div>';
+                echo '</dl>';
             } else {
-                echo '<p><strong>' . esc_html__( 'License status:', 'bangla-track-server' ) . '</strong> ' . esc_html( ucfirst( sanitize_key( (string) $entitlement->status ) ) ) . '</p>';
+                echo '<p class="bt-license-card__note">' . esc_html__( 'This purchase is not ready for license generation right now.', 'bangla-track-server' ) . '</p>';
             }
 
-            echo '</div>';
+            echo '</article>';
         }
 
-        echo '<script>
-            (function() {
-                var buttons = document.querySelectorAll(".bt-copy-license-key");
-                if (!buttons.length) { return; }
-                buttons.forEach(function(button) {
-                    button.addEventListener("click", function() {
-                        var key = button.getAttribute("data-license") || "";
-                        if (!key) { return; }
-                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                            navigator.clipboard.writeText(key);
-                        } else {
-                            var temp = document.createElement("textarea");
-                            temp.value = key;
-                            document.body.appendChild(temp);
-                            temp.select();
-                            document.execCommand("copy");
-                            document.body.removeChild(temp);
-                        }
-                        button.textContent = "Copied";
-                        setTimeout(function() { button.textContent = "Copy License Key"; }, 1500);
-                    });
-                });
-            })();
-        </script>';
+        echo '</div>';
+        echo '</section>';
     }
 
     /**
@@ -637,5 +703,48 @@ class LicenseEntitlementManager {
         }
 
         return ucfirst( str_replace( '_', ' ', $code ) );
+    }
+
+    /**
+     * Get readable label for entitlement status.
+     *
+     * @param string $status Entitlement status.
+     * @return string
+     */
+    private function get_entitlement_status_label( $status ) {
+        $status = sanitize_key( (string) $status );
+        if ( 'pending' === $status ) {
+            return __( 'Not Generated', 'bangla-track-server' );
+        }
+        if ( 'generated' === $status ) {
+            return __( 'Generated', 'bangla-track-server' );
+        }
+        if ( 'cancelled' === $status ) {
+            return __( 'Cancelled', 'bangla-track-server' );
+        }
+        if ( 'refunded' === $status ) {
+            return __( 'Refunded', 'bangla-track-server' );
+        }
+        return ucfirst( $status );
+    }
+
+    /**
+     * Get CSS class for entitlement status.
+     *
+     * @param string $status Entitlement status.
+     * @return string
+     */
+    private function get_entitlement_status_class( $status ) {
+        $status = sanitize_key( (string) $status );
+        if ( 'pending' === $status ) {
+            return 'bt-status-pill--pending';
+        }
+        if ( 'generated' === $status ) {
+            return 'bt-status-pill--generated';
+        }
+        if ( 'cancelled' === $status || 'refunded' === $status ) {
+            return 'bt-status-pill--muted';
+        }
+        return 'bt-status-pill--muted';
     }
 }
