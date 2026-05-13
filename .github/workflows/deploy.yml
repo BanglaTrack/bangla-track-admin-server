@@ -14,10 +14,40 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Detect rsync binary on cPanel host
+        id: detect_rsync
+        env:
+          CPANEL_HOST: ${{ secrets.CPANEL_HOST }}
+          CPANEL_PORT: ${{ secrets.CPANEL_PORT }}
+          CPANEL_USER: ${{ secrets.CPANEL_USER }}
+          CPANEL_SSH_KEY: ${{ secrets.CPANEL_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$CPANEL_SSH_KEY" > ~/.ssh/cpanel_key
+          chmod 600 ~/.ssh/cpanel_key
+
+          RSYNC_BIN=$(ssh \
+            -i ~/.ssh/cpanel_key \
+            -p "$CPANEL_PORT" \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            "$CPANEL_USER@$CPANEL_HOST" \
+            "command -v rsync || for p in /usr/bin/rsync /bin/rsync /usr/local/bin/rsync /usr/local/cpanel/3rdparty/bin/rsync; do [ -x \$p ] && { echo \$p; break; }; done")
+
+          if [ -z "$RSYNC_BIN" ]; then
+            echo "::error::No rsync binary found on remote host for this SSH user."
+            echo "::error::Ask your hosting provider to enable rsync for your cPanel shell user."
+            exit 1
+          fi
+
+          echo "Detected remote rsync binary: $RSYNC_BIN"
+          echo "rsync_path=$RSYNC_BIN" >> "$GITHUB_OUTPUT"
+
       - name: Deploy via rsync over SSH
         uses: burnett01/rsync-deployments@7.0.1
         with:
-          switches: -avzr --exclude-from='.rsyncignore'
+          switches: -avzr --exclude-from='.rsyncignore' --rsync-path='${{ steps.detect_rsync.outputs.rsync_path }}'
           path: ./
           remote_path: ${{ secrets.CPANEL_PLUGIN_PATH }}
           remote_host: ${{ secrets.CPANEL_HOST }}
