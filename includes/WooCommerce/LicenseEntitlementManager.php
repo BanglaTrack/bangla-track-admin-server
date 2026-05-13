@@ -54,10 +54,101 @@ class LicenseEntitlementManager {
         add_filter( 'query_vars', array( $this, 'register_query_vars' ), 0 );
         add_filter( 'woocommerce_account_menu_items', array( $this, 'add_my_account_menu_item' ) );
         add_action( 'woocommerce_account_' . self::ACCOUNT_ENDPOINT . '_endpoint', array( $this, 'render_my_account_dashboard' ) );
+        add_filter( 'woocommerce_add_to_cart_redirect', array( $this, 'redirect_to_checkout_after_add' ) );
+        add_action( 'template_redirect', array( $this, 'redirect_cart_page_to_checkout' ) );
+        add_filter( 'woocommerce_add_to_cart_validation', array( $this, 'enforce_single_product_cart_on_add' ), 10, 6 );
+        add_action( 'woocommerce_before_calculate_totals', array( $this, 'enforce_single_product_cart_integrity' ), 5 );
 
         add_action( 'woocommerce_order_status_completed', array( $this, 'handle_order_completed' ), 20, 1 );
         add_action( 'admin_post_bt_generate_license_key', array( $this, 'handle_generate_license_request' ) );
         add_action( 'admin_post_nopriv_bt_generate_license_key', array( $this, 'handle_generate_license_request' ) );
+    }
+
+    /**
+     * Redirect to checkout after add to cart.
+     *
+     * @param string $url Existing redirect URL.
+     * @return string
+     */
+    public function redirect_to_checkout_after_add( $url ) {
+        if ( function_exists( 'wc_get_checkout_url' ) ) {
+            return wc_get_checkout_url();
+        }
+
+        return $url;
+    }
+
+    /**
+     * Redirect cart page to checkout so cart page is not used by customers.
+     *
+     * @return void
+     */
+    public function redirect_cart_page_to_checkout() {
+        if ( is_admin() || wp_doing_ajax() ) {
+            return;
+        }
+
+        if ( function_exists( 'is_cart' ) && is_cart() && function_exists( 'wc_get_checkout_url' ) ) {
+            wp_safe_redirect( wc_get_checkout_url() );
+            exit;
+        }
+    }
+
+    /**
+     * Keep only one product type in cart by replacing old cart contents.
+     *
+     * @param bool  $passed Validation status.
+     * @param int   $product_id Product ID being added.
+     * @param int   $quantity Quantity.
+     * @param int   $variation_id Variation ID.
+     * @param array $variations Variation data.
+     * @param array $cart_item_data Cart item data.
+     * @return bool
+     */
+    public function enforce_single_product_cart_on_add( $passed, $product_id, $quantity, $variation_id = 0, $variations = array(), $cart_item_data = array() ) {
+        if ( ! $passed || ! function_exists( 'WC' ) || ! WC()->cart ) {
+            return $passed;
+        }
+
+        if ( WC()->cart->is_empty() ) {
+            return $passed;
+        }
+
+        // Replace old cart items with the newly added product.
+        WC()->cart->empty_cart();
+
+        return $passed;
+    }
+
+    /**
+     * Final integrity guard: cart should contain only one line item.
+     *
+     * @param \WC_Cart $cart WooCommerce cart instance.
+     * @return void
+     */
+    public function enforce_single_product_cart_integrity( $cart ) {
+        if ( is_admin() && ! wp_doing_ajax() ) {
+            return;
+        }
+
+        if ( ! is_object( $cart ) || ! method_exists( $cart, 'get_cart' ) ) {
+            return;
+        }
+
+        $items = $cart->get_cart();
+        if ( count( $items ) <= 1 ) {
+            return;
+        }
+
+        $keys = array_keys( $items );
+        $keep = end( $keys );
+
+        foreach ( $items as $cart_item_key => $item ) {
+            if ( $cart_item_key === $keep ) {
+                continue;
+            }
+            $cart->remove_cart_item( $cart_item_key );
+        }
     }
 
     /**
