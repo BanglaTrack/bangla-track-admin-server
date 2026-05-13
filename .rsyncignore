@@ -1,0 +1,10 @@
+.git/
+.github/
+node_modules/
+tests/
+.DS_Store
+.env
+.env.*
+*.log
+README.md
+phpunit.xml

@@ -1,0 +1,26 @@
+name: Deploy Plugin To cPanel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Rsync Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy via rsync over SSH
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avzr --exclude-from='.rsyncignore'
+          path: ./
+          remote_path: ${{ secrets.CPANEL_PLUGIN_PATH }}
+          remote_host: ${{ secrets.CPANEL_HOST }}
+          remote_port: ${{ secrets.CPANEL_PORT }}
+          remote_user: ${{ secrets.CPANEL_USER }}
+          remote_key: ${{ secrets.CPANEL_SSH_KEY }}
