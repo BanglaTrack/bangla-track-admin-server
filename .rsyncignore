@@ -1,5 +1,11 @@
+.git
 .git/
+.github
 .github/
+.rsyncignore
+./.git/
+./.github/
+./.rsyncignore
 node_modules/
 tests/
 .DS_Store

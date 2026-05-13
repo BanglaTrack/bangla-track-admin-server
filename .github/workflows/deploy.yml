@@ -40,4 +40,7 @@ jobs:
             cd "${{ secrets.CPANEL_PLUGIN_PATH }}"
             command -v tar >/dev/null 2>&1 || { echo "tar not found on remote host"; exit 1; }
             tar -xzf plugin.tar.gz
+            # Keep deployment/control artifacts out of live plugin directory.
+            rm -rf .git .github
+            rm -f .rsyncignore
             rm -f plugin.tar.gz
