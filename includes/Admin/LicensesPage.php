@@ -48,7 +48,7 @@ class LicensesPage {
             $data = array(
                 'customer_email'  => sanitize_email( wp_unslash( $_POST['customer_email'] ?? '' ) ),
                 'customer_name'   => sanitize_text_field( wp_unslash( $_POST['customer_name'] ?? '' ) ),
-                'plan'            => in_array( sanitize_text_field( wp_unslash( $_POST['plan'] ?? 'free' ) ), array( 'free', 'pro' ), true ) ? sanitize_text_field( wp_unslash( $_POST['plan'] ?? 'free' ) ) : 'free',
+                'plan'            => in_array( sanitize_text_field( wp_unslash( $_POST['plan'] ?? 'free' ) ), array( 'free', 'starter', 'pro' ), true ) ? sanitize_text_field( wp_unslash( $_POST['plan'] ?? 'free' ) ) : 'free',
                 'max_activations' => absint( $_POST['max_activations'] ?? 1 ),
                 'expires_at'      => ! empty( $_POST['expires_at'] ) ? sanitize_text_field( wp_unslash( $_POST['expires_at'] ) ) : null,
             );
@@ -66,7 +66,8 @@ class LicensesPage {
                 $plan = sanitize_text_field( wp_unslash( $_POST['plan'] ?? 'free' ) );
                 $status = sanitize_text_field( wp_unslash( $_POST['status'] ?? 'active' ) );
                 $this->repo->update( $license_id, array(
-                    'plan'   => in_array( $plan, array( 'free', 'pro' ), true ) ? $plan : 'free',
+                    'plan'   => in_array( $plan, array( 'free', 'starter', 'pro' ), true ) ? $plan : 'free',
+                    'plan_code' => in_array( $plan, array( 'free', 'starter', 'pro' ), true ) ? $plan : 'free',
                     'status' => in_array( $status, array( 'active', 'expired', 'disabled', 'cancelled' ), true ) ? $status : 'active',
                 ) );
                 wp_safe_redirect( admin_url( 'admin.php?page=bt-server-licenses&updated=1' ) );
@@ -135,6 +136,7 @@ class LicensesPage {
                             <td>
                                 <select id="plan" name="plan">
                                     <option value="free"><?php esc_html_e( 'Free', 'bangla-track-server' ); ?></option>
+                                    <option value="starter"><?php esc_html_e( 'Starter', 'bangla-track-server' ); ?></option>
                                     <option value="pro"><?php esc_html_e( 'Pro', 'bangla-track-server' ); ?></option>
                                 </select>
                             </td>
@@ -218,6 +220,7 @@ class LicensesPage {
                     <?php else : ?>
                         <?php foreach ( $licenses as $license ) : 
                             $active_count = $activation_repo->get_active_count( $license->id );
+                            $plan = $license->plan_code ?? $license->plan;
                         ?>
                             <tr>
                                 <td><code><?php echo esc_html( $license->license_key ); ?></code></td>
@@ -232,7 +235,7 @@ class LicensesPage {
                                         <?php echo esc_html( ucfirst( $license->status ) ); ?>
                                     </span>
                                 </td>
-                                <td><?php echo esc_html( strtoupper( $license->plan ) ); ?></td>
+                                <td><?php echo esc_html( strtoupper( $plan ) ); ?></td>
                                 <td><?php echo esc_html( $active_count . ' / ' . $license->max_activations ); ?></td>
                                 <td><?php echo $license->expires_at ? esc_html( date_i18n( 'M j, Y', strtotime( $license->expires_at ) ) ) : '—'; ?></td>
                                 <td>
@@ -249,8 +252,9 @@ class LicensesPage {
                                         <?php wp_nonce_field( 'bt_update_license' ); ?>
                                         <input type="hidden" name="license_id" value="<?php echo esc_attr( $license->id ); ?>" />
                                         <select name="plan">
-                                            <option value="free" <?php selected( $license->plan, 'free' ); ?>><?php esc_html_e( 'Free', 'bangla-track-server' ); ?></option>
-                                            <option value="pro" <?php selected( $license->plan, 'pro' ); ?>><?php esc_html_e( 'Pro', 'bangla-track-server' ); ?></option>
+                                            <option value="free" <?php selected( $plan, 'free' ); ?>><?php esc_html_e( 'Free', 'bangla-track-server' ); ?></option>
+                                            <option value="starter" <?php selected( $plan, 'starter' ); ?>><?php esc_html_e( 'Starter', 'bangla-track-server' ); ?></option>
+                                            <option value="pro" <?php selected( $plan, 'pro' ); ?>><?php esc_html_e( 'Pro', 'bangla-track-server' ); ?></option>
                                         </select>
                                         <select name="status">
                                             <option value="active" <?php selected( $license->status, 'active' ); ?>><?php esc_html_e( 'Active', 'bangla-track-server' ); ?></option>

@@ -13,6 +13,7 @@ use BanglaTrackServer\Admin\ActivationsPage;
 use BanglaTrackServer\Database\Installer;
 use BanglaTrackServer\REST\LicenseController;
 use BanglaTrackServer\WooCommerce\ProductLicenseFields;
+use BanglaTrackServer\WooCommerce\LicenseEntitlementManager;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -55,6 +56,11 @@ class Bootstrap {
      * @return void
      */
     private function init_hooks() {
+        if ( class_exists( 'WooCommerce' ) ) {
+            $entitlement_manager = new LicenseEntitlementManager();
+            $entitlement_manager->register_hooks();
+        }
+
         if ( is_admin() ) {
             add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
             add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
@@ -67,6 +73,7 @@ class Bootstrap {
 
         add_action( 'rest_api_init', array( $this, 'init_rest_api' ) );
         add_action( 'init', array( $this, 'load_textdomain' ) );
+        add_action( 'init', array( Installer::class, 'maybe_migrate' ), 5 );
         add_action( 'admin_init', array( Installer::class, 'maybe_migrate' ) );
     }
 

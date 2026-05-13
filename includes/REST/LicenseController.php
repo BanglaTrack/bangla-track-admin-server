@@ -114,7 +114,7 @@ class LicenseController extends WP_REST_Controller {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Invalid provider.', 'bangla-track-server' ) ), 200 );
         }
 
-        if ( 'pro' === $ctx['license']->plan ) {
+        if ( $this->is_multi_provider_license( $ctx['license'] ) ) {
             return new WP_REST_Response( array( 'success' => true, 'locked_provider' => '' ), 200 );
         }
 
@@ -133,7 +133,7 @@ class LicenseController extends WP_REST_Controller {
             return new WP_REST_Response( array( 'success' => false, 'allowed' => false, 'reason' => 'invalid_provider' ), 200 );
         }
 
-        if ( 'pro' === $ctx['license']->plan ) {
+        if ( $this->is_multi_provider_license( $ctx['license'] ) ) {
             return new WP_REST_Response( array( 'success' => true, 'allowed' => true, 'locked_provider' => '' ), 200 );
         }
 
@@ -167,19 +167,22 @@ class LicenseController extends WP_REST_Controller {
     private function status_array( $license, $activation_id, $active, $site_url ) {
         $month = gmdate( 'Y-m' );
         $used = $activation_id ? $this->usage_repo->count_for_month( (int) $license->id, (int) $activation_id, $month ) : 0;
-        $limit = ( 'pro' === $license->plan ) ? -1 : 100;
+        $plan_code = $this->get_plan_code( $license );
+        $limit = isset( $license->monthly_booking_limit ) ? intval( $license->monthly_booking_limit ) : ( 'pro' === $plan_code ? -1 : 100 );
+        $allowed_active_providers = isset( $license->allowed_active_providers ) ? intval( $license->allowed_active_providers ) : ( 'pro' === $plan_code ? -1 : 1 );
+        $multi_provider = isset( $license->multi_provider ) ? (bool) $license->multi_provider : ( 'pro' === $plan_code );
         $remaining = ( -1 === $limit ) ? -1 : max( 0, $limit - $used );
         $locked = $activation_id ? sanitize_key( (string) $this->provider_lock_repo->get_locked_provider( (int) $license->id, (int) $activation_id ) ) : '';
 
         return array(
             'success' => true,
             'license_status' => $active && 'active' === $license->status ? 'active' : $license->status,
-            'plan' => sanitize_key( $license->plan ),
+            'plan' => $plan_code,
             'site_url' => esc_url_raw( 'https://' . ltrim( (string) $site_url, '/' ) ),
             'features' => array(
                 'monthly_limit' => $limit,
-                'multi_provider' => 'pro' === $license->plan,
-                'allowed_active_providers' => 'pro' === $license->plan ? -1 : 1,
+                'multi_provider' => $multi_provider,
+                'allowed_active_providers' => $allowed_active_providers,
                 'allowed_providers' => array( 'steadfast', 'pathao', 'redx' ),
             ),
             'usage' => array( 'month' => $month, 'used' => $used, 'remaining' => $remaining ),
@@ -235,5 +238,34 @@ class LicenseController extends WP_REST_Controller {
     private function sanitize_provider( $provider ) {
         $provider = sanitize_key( (string) $provider );
         return in_array( $provider, array( 'steadfast', 'pathao', 'redx' ), true ) ? $provider : '';
+    }
+
+    /**
+     * Get normalized plan code from license row.
+     *
+     * @param object $license License row.
+     * @return string
+     */
+    private function get_plan_code( $license ) {
+        if ( isset( $license->plan_code ) && ! empty( $license->plan_code ) ) {
+            return sanitize_key( (string) $license->plan_code );
+        }
+        if ( isset( $license->plan ) && ! empty( $license->plan ) ) {
+            return sanitize_key( (string) $license->plan );
+        }
+        return 'free';
+    }
+
+    /**
+     * Check whether license can use multiple providers.
+     *
+     * @param object $license License row.
+     * @return bool
+     */
+    private function is_multi_provider_license( $license ) {
+        if ( isset( $license->multi_provider ) ) {
+            return (bool) $license->multi_provider;
+        }
+        return 'pro' === $this->get_plan_code( $license );
     }
 }

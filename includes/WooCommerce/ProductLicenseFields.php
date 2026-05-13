@@ -59,7 +59,7 @@ class ProductLicenseFields {
             array(
                 'id'          => '_bt_is_license_product',
                 'label'       => __( 'Enable Bangla Track License Product', 'bangla-track-server' ),
-                'description' => __( 'Enable this if purchasing this product should generate a Bangla Track license key.', 'bangla-track-server' ),
+                'description' => __( 'Enable this if purchasing this product should create a Bangla Track entitlement. Customer can generate the license key later from dashboard.', 'bangla-track-server' ),
             )
         );
 
