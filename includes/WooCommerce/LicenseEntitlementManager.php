@@ -75,10 +75,6 @@ class LicenseEntitlementManager {
             return;
         }
 
-        if ( function_exists( 'is_wc_endpoint_url' ) && ! is_wc_endpoint_url( self::ACCOUNT_ENDPOINT ) ) {
-            return;
-        }
-
         wp_enqueue_style(
             'bt-server-account',
             BT_SERVER_PLUGIN_URL . 'assets/css/account.css',
@@ -428,12 +424,12 @@ class LicenseEntitlementManager {
                 echo '<button type="button" class="button bt-copy-license-key bt-button-ghost" data-license="' . esc_attr( $license_key ) . '">' . esc_html__( 'Copy', 'bangla-track-server' ) . '</button>';
                 echo '</div>';
 
-                echo '<dl class="bt-license-grid">';
-                echo '<div><dt>' . esc_html__( 'Plan', 'bangla-track-server' ) . '</dt><dd>' . esc_html( $plan_label ) . '</dd></div>';
-                echo '<div><dt>' . esc_html__( 'Status', 'bangla-track-server' ) . '</dt><dd>' . esc_html( ucfirst( $status ) ) . '</dd></div>';
-                echo '<div><dt>' . esc_html__( 'Starts at', 'bangla-track-server' ) . '</dt><dd>' . esc_html( $starts_at ) . '</dd></div>';
-                echo '<div><dt>' . esc_html__( 'Expires at', 'bangla-track-server' ) . '</dt><dd>' . esc_html( $expires_at ) . '</dd></div>';
-                echo '</dl>';
+                echo '<div class="bt-license-grid">';
+                echo '<div class="bt-license-grid__item"><span class="bt-license-grid__label">' . esc_html__( 'Plan', 'bangla-track-server' ) . '</span><span class="bt-license-grid__value">' . esc_html( $plan_label ) . '</span></div>';
+                echo '<div class="bt-license-grid__item"><span class="bt-license-grid__label">' . esc_html__( 'Status', 'bangla-track-server' ) . '</span><span class="bt-license-grid__value">' . esc_html( ucfirst( $status ) ) . '</span></div>';
+                echo '<div class="bt-license-grid__item"><span class="bt-license-grid__label">' . esc_html__( 'Starts at', 'bangla-track-server' ) . '</span><span class="bt-license-grid__value">' . esc_html( $starts_at ) . '</span></div>';
+                echo '<div class="bt-license-grid__item"><span class="bt-license-grid__label">' . esc_html__( 'Expires at', 'bangla-track-server' ) . '</span><span class="bt-license-grid__value">' . esc_html( $expires_at ) . '</span></div>';
+                echo '</div>';
             } else {
                 echo '<p class="bt-license-card__note">' . esc_html__( 'This purchase is not ready for license generation right now.', 'bangla-track-server' ) . '</p>';
             }

@@ -1,288 +1,351 @@
-.bt-account-licenses {
+body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses {
     --bt-surface: #ffffff;
-    --bt-surface-soft: #f6fbf9;
-    --bt-border: #dbe7e2;
-    --bt-text: #1a2b24;
-    --bt-text-muted: #5b6f66;
-    --bt-primary: #117a58;
-    --bt-primary-dark: #0e684b;
-    --bt-pending-bg: #fff7e6;
-    --bt-pending-text: #8a5a00;
-    --bt-generated-bg: #e7f8ef;
-    --bt-generated-text: #1d6b46;
-    --bt-muted-bg: #eef2f1;
-    --bt-muted-text: #55635d;
+    --bt-surface-soft: #f5faf8;
+    --bt-border: #d7e7df;
+    --bt-text: #10261d;
+    --bt-text-muted: #587063;
+    --bt-primary: #0f7e57;
+    --bt-primary-dark: #0b6848;
+    --bt-pending-bg: #fff4dc;
+    --bt-pending-text: #8c5d00;
+    --bt-generated-bg: #e3f6ec;
+    --bt-generated-text: #1c6b47;
+    --bt-muted-bg: #edf2f0;
+    --bt-muted-text: #54655d;
     color: var(--bt-text);
+    background: radial-gradient(circle at 0% 0%, #f4fbf7 0%, rgba(244, 251, 247, 0) 45%);
+    border-radius: 18px;
+    padding: 10px 0 0;
 }
 
-.bt-account-licenses__header {
+body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses,
+body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses * {
+    box-sizing: border-box;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses__header {
     margin-bottom: 20px;
 }
 
-.bt-account-licenses__title {
-    margin: 0;
-    font-size: 32px;
-    line-height: 1.2;
-    letter-spacing: -0.01em;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses__title {
+    margin: 0 !important;
+    font-size: 34px !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.02em;
+    font-weight: 700 !important;
+    color: #0f2b21 !important;
 }
 
-.bt-account-licenses__subtitle {
-    margin: 8px 0 16px;
-    color: var(--bt-text-muted);
+body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses__subtitle {
+    margin: 10px 0 18px !important;
+    color: var(--bt-text-muted) !important;
     max-width: 70ch;
+    font-size: 18px !important;
+    line-height: 1.6 !important;
 }
 
-.bt-account-licenses__stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses__stats {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
 }
 
-.bt-stat-pill {
-    display: inline-flex;
-    align-items: center;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-stat-pill {
+    display: flex !important;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 6px;
     background: var(--bt-surface-soft);
     border: 1px solid var(--bt-border);
-    color: var(--bt-text);
-    border-radius: 999px;
-    padding: 6px 12px;
-    font-size: 13px;
-    line-height: 1.2;
+    color: #113325;
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-size: 13px !important;
+    line-height: 1.3 !important;
+    font-weight: 600;
+    min-height: 72px;
 }
 
-.bt-stat-pill strong {
-    font-size: 14px;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-stat-pill strong {
+    font-size: 26px !important;
+    line-height: 1 !important;
+    font-weight: 700;
 }
 
-.bt-stat-pill--pending {
+body.woocommerce-account .woocommerce-MyAccount-content .bt-stat-pill--pending {
     background: var(--bt-pending-bg);
     color: var(--bt-pending-text);
-    border-color: #f2dfb8;
+    border-color: #edd5a2;
 }
 
-.bt-stat-pill--generated {
+body.woocommerce-account .woocommerce-MyAccount-content .bt-stat-pill--generated {
     background: var(--bt-generated-bg);
     color: var(--bt-generated-text);
-    border-color: #c9e9d9;
+    border-color: #bfe3cf;
 }
 
-.bt-empty-state {
-    background: linear-gradient(135deg, #f4faf7 0%, #f9fbfa 100%);
+body.woocommerce-account .woocommerce-MyAccount-content .bt-empty-state {
+    background: linear-gradient(140deg, #f4faf7 0%, #ffffff 100%);
     border: 1px solid var(--bt-border);
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 24px;
 }
 
-.bt-empty-state h4 {
-    margin: 0 0 8px;
-    font-size: 20px;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-empty-state h4 {
+    margin: 0 0 10px !important;
+    font-size: 21px !important;
+    line-height: 1.3 !important;
+    font-weight: 700 !important;
 }
 
-.bt-empty-state p {
-    margin: 0;
-    color: var(--bt-text-muted);
+body.woocommerce-account .woocommerce-MyAccount-content .bt-empty-state p {
+    margin: 0 !important;
+    color: var(--bt-text-muted) !important;
+    line-height: 1.6 !important;
 }
 
-.bt-license-list {
-    display: grid;
-    gap: 16px;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-list {
+    display: grid !important;
+    gap: 18px;
 }
 
-.bt-license-card {
-    border: 1px solid var(--bt-border);
-    border-radius: 14px;
-    background: var(--bt-surface);
-    padding: 18px;
-    box-shadow: 0 1px 2px rgba(14, 41, 30, 0.04);
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-card {
+    border: 1px solid var(--bt-border) !important;
+    border-radius: 16px !important;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfefd 100%) !important;
+    padding: 18px !important;
+    box-shadow: 0 10px 24px rgba(17, 54, 39, 0.06) !important;
+    position: relative;
+    overflow: hidden;
 }
 
-.bt-license-card__head {
-    display: flex;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #0f7e57 0%, #2ab17d 100%);
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-card__head {
+    display: flex !important;
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
 }
 
-.bt-license-card__title {
-    margin: 0;
-    font-size: 20px;
-    line-height: 1.3;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-card__title {
+    margin: 0 !important;
+    font-size: 27px !important;
+    line-height: 1.25 !important;
+    font-weight: 700 !important;
+    color: #0e261d !important;
 }
 
-.bt-license-card__order {
-    margin: 6px 0 0;
-    color: var(--bt-text-muted);
-    font-size: 14px;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-card__order {
+    margin: 6px 0 0 !important;
+    color: var(--bt-text-muted) !important;
+    font-size: 14px !important;
+    line-height: 1.4 !important;
 }
 
-.bt-license-card__meta {
-    margin-top: 12px;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-card__meta {
+    margin-top: 12px !important;
 }
 
-.bt-meta-chip {
-    display: inline-flex;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-meta-chip {
+    display: inline-flex !important;
     align-items: center;
     gap: 6px;
-    font-size: 13px;
-    color: var(--bt-text-muted);
-    background: #f7f9f8;
-    border: 1px solid #e4ece8;
-    border-radius: 999px;
-    padding: 5px 10px;
+    font-size: 13px !important;
+    color: #355d4f !important;
+    background: #f4faf7 !important;
+    border: 1px solid #d8e9e0 !important;
+    border-radius: 999px !important;
+    padding: 7px 12px !important;
 }
 
-.bt-meta-chip code {
-    font-size: 12px;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-meta-chip code {
+    font-size: 12px !important;
+    color: #173f31 !important;
+    font-weight: 600;
 }
 
-.bt-status-pill {
-    display: inline-flex;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-status-pill {
+    display: inline-flex !important;
     align-items: center;
     border-radius: 999px;
-    padding: 6px 10px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
+    padding: 7px 12px;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     white-space: nowrap;
 }
 
-.bt-status-pill--pending {
+body.woocommerce-account .woocommerce-MyAccount-content .bt-status-pill--pending {
     background: var(--bt-pending-bg);
     color: var(--bt-pending-text);
 }
 
-.bt-status-pill--generated {
+body.woocommerce-account .woocommerce-MyAccount-content .bt-status-pill--generated {
     background: var(--bt-generated-bg);
     color: var(--bt-generated-text);
 }
 
-.bt-status-pill--muted {
+body.woocommerce-account .woocommerce-MyAccount-content .bt-status-pill--muted {
     background: var(--bt-muted-bg);
     color: var(--bt-muted-text);
 }
 
-.bt-license-card__note {
-    margin: 14px 0 0;
-    color: var(--bt-text-muted);
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-card__note {
+    margin: 16px 0 0 !important;
+    color: var(--bt-text-muted) !important;
+    font-size: 15px !important;
+    line-height: 1.6 !important;
 }
 
-.bt-license-card__actions {
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-card__actions {
+    margin-top: 16px !important;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-button-primary,
+body.woocommerce-account .woocommerce-MyAccount-content .woocommerce .button.bt-button-primary {
+    border-radius: 999px !important;
+    border: 1px solid var(--bt-primary-dark) !important;
+    background: linear-gradient(180deg, #14956b 0%, var(--bt-primary) 100%) !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+    padding: 11px 22px !important;
+    letter-spacing: 0.01em;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-button-primary:hover,
+body.woocommerce-account .woocommerce-MyAccount-content .woocommerce .button.bt-button-primary:hover {
+    background: var(--bt-primary-dark) !important;
+    color: #fff !important;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-key-box {
     margin-top: 16px;
-}
-
-.bt-button-primary,
-.woocommerce .button.bt-button-primary {
-    border-radius: 999px;
-    border: 1px solid var(--bt-primary-dark);
-    background: linear-gradient(180deg, #14936a 0%, var(--bt-primary) 100%);
-    color: #fff;
-    font-weight: 600;
-    padding: 11px 20px;
-}
-
-.bt-button-primary:hover,
-.woocommerce .button.bt-button-primary:hover {
-    background: var(--bt-primary-dark);
-    color: #fff;
-}
-
-.bt-license-key-box {
-    margin-top: 14px;
-    border: 1px solid #d4e5dc;
-    background: linear-gradient(180deg, #f8fcfa 0%, #f1f8f4 100%);
+    border: 1px solid #cbe3d7;
+    background: linear-gradient(180deg, #f8fcfa 0%, #eef8f3 100%);
     border-radius: 12px;
     padding: 14px;
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
 }
 
-.bt-license-key-box__label {
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-key-box__label {
     display: block;
-    font-size: 12px;
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #5b7b6e !important;
+    margin-bottom: 6px !important;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-key-box__value {
+    display: block;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    color: #0f3b2b !important;
+    word-break: break-word;
+    line-height: 1.35 !important;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-button-ghost,
+body.woocommerce-account .woocommerce-MyAccount-content .woocommerce .button.bt-button-ghost {
+    border-radius: 999px !important;
+    border: 1px solid #b8d8c9 !important;
+    background: #fff !important;
+    color: #1b5f45 !important;
+    font-weight: 700 !important;
+    min-width: 94px;
+    text-align: center;
+    padding: 10px 16px !important;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-button-ghost:hover,
+body.woocommerce-account .woocommerce-MyAccount-content .woocommerce .button.bt-button-ghost:hover {
+    background: #e7f4ed !important;
+    color: #124230 !important;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-grid {
+    margin: 16px 0 0 !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-grid__item {
+    border: 1px solid #e0ece6 !important;
+    border-radius: 10px !important;
+    padding: 10px 12px !important;
+    background: #fbfdfc !important;
+    display: flex !important;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 66px;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-grid__label {
+    margin: 0 !important;
+    font-size: 11px !important;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #527467;
-    margin-bottom: 4px;
-}
-
-.bt-license-key-box__value {
-    display: block;
-    font-size: 16px;
+    color: #5f766d !important;
     font-weight: 700;
-    color: #103f2d;
-    word-break: break-all;
 }
 
-.bt-button-ghost,
-.woocommerce .button.bt-button-ghost {
-    border-radius: 999px;
-    border: 1px solid #b8d6c7;
-    background: #fff;
-    color: #1a5f45;
-    font-weight: 600;
-    min-width: 92px;
-    text-align: center;
-}
-
-.bt-button-ghost:hover,
-.woocommerce .button.bt-button-ghost:hover {
-    background: #eaf6f0;
-    color: #134433;
-}
-
-.bt-license-grid {
-    margin: 16px 0 0;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.bt-license-grid > div {
-    border: 1px solid #e4ece8;
-    border-radius: 10px;
-    padding: 10px 12px;
-    background: #fbfdfc;
-}
-
-.bt-license-grid dt {
-    margin: 0;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #607770;
-}
-
-.bt-license-grid dd {
-    margin: 4px 0 0;
-    font-size: 15px;
-    color: #19372c;
+body.woocommerce-account .woocommerce-MyAccount-content .bt-license-grid__value {
+    margin: 0 !important;
+    font-size: 15px !important;
+    color: #1a382d !important;
+    line-height: 1.35 !important;
     word-break: break-word;
+    font-weight: 600;
+}
+
+@media (max-width: 1024px) {
+    body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses__stats {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 767px) {
-    .bt-account-licenses__title {
-        font-size: 26px;
+    body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses__title {
+        font-size: 28px !important;
     }
 
-    .bt-license-card {
-        padding: 14px;
+    body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses__subtitle {
+        font-size: 16px !important;
     }
 
-    .bt-license-card__head {
+    body.woocommerce-account .woocommerce-MyAccount-content .bt-license-card {
+        padding: 14px !important;
+    }
+
+    body.woocommerce-account .woocommerce-MyAccount-content .bt-license-card__title {
+        font-size: 22px !important;
+    }
+
+    body.woocommerce-account .woocommerce-MyAccount-content .bt-license-card__head {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+
+    body.woocommerce-account .woocommerce-MyAccount-content .bt-license-key-box {
         flex-direction: column;
         align-items: flex-start;
     }
 
-    .bt-license-key-box {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .bt-license-grid {
+    body.woocommerce-account .woocommerce-MyAccount-content .bt-license-grid {
         grid-template-columns: 1fr;
     }
 }
