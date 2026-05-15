@@ -20,19 +20,13 @@ class PluginZipMetadataExtractor {
             return new \WP_Error( 'invalid_plugin_type', __( 'Invalid plugin type.', 'bangla-track-server' ) );
         }
 
-        if ( ! class_exists( 'ZipArchive' ) ) {
-            return new \WP_Error( 'zip_missing', __( 'ZipArchive extension is not available on the server.', 'bangla-track-server' ) );
+        $entries = $this->read_zip_entries( $zip_path );
+        if ( is_wp_error( $entries ) ) {
+            return $entries;
         }
 
-        $zip = new \ZipArchive();
-        $opened = $zip->open( $zip_path );
-        if ( true !== $opened ) {
-            return new \WP_Error( 'zip_open_failed', __( 'Could not open ZIP file.', 'bangla-track-server' ) );
-        }
-
-        $candidate_headers = $this->find_candidate_headers( $zip );
+        $candidate_headers = $this->find_candidate_headers( $entries );
         if ( empty( $candidate_headers ) ) {
-            $zip->close();
             return new \WP_Error( 'plugin_header_missing', __( 'Could not find a valid plugin main file with Plugin Name and Version headers.', 'bangla-track-server' ) );
         }
 
@@ -51,7 +45,6 @@ class PluginZipMetadataExtractor {
         }
 
         if ( ! $selected || $selected['detected_type'] !== $expected_type ) {
-            $zip->close();
             return new \WP_Error(
                 'wrong_zip_type',
                 sprintf(
@@ -63,8 +56,7 @@ class PluginZipMetadataExtractor {
         }
 
         $headers = $selected['headers'];
-        $changelog = $this->extract_changelog( $zip );
-        $zip->close();
+        $changelog = $this->extract_changelog( $entries );
 
         return array(
             'plugin_type' => $expected_type,
@@ -82,10 +74,10 @@ class PluginZipMetadataExtractor {
     /**
      * Find possible plugin main files and parsed headers.
      *
-     * @param \ZipArchive $zip Zip object.
+     * @param array<string,string> $entries ZIP entries map.
      * @return array<int,array<string,mixed>>
      */
-    private function find_candidate_headers( \ZipArchive $zip ) {
+    private function find_candidate_headers( array $entries ) {
         $priority_entries = array(
             'bangla-track/bangla-track.php',
             'bangla-track-pro/bangla-track-pro.php',
@@ -94,10 +86,10 @@ class PluginZipMetadataExtractor {
         $candidates = array();
 
         foreach ( $priority_entries as $entry_name ) {
-            $content = $zip->getFromName( $entry_name );
-            if ( false === $content ) {
+            if ( ! isset( $entries[ $entry_name ] ) ) {
                 continue;
             }
+            $content = (string) $entries[ $entry_name ];
 
             $headers = $this->parse_plugin_headers( $content );
             if ( ! empty( $headers['Plugin Name'] ) && ! empty( $headers['Version'] ) ) {
@@ -108,8 +100,7 @@ class PluginZipMetadataExtractor {
             }
         }
 
-        for ( $i = 0; $i < $zip->numFiles; $i++ ) {
-            $entry_name = (string) $zip->getNameIndex( $i );
+        foreach ( $entries as $entry_name => $content ) {
             if ( empty( $entry_name ) || substr( $entry_name, -4 ) !== '.php' ) {
                 continue;
             }
@@ -125,11 +116,6 @@ class PluginZipMetadataExtractor {
                 continue;
             }
 
-            $content = $zip->getFromIndex( $i );
-            if ( false === $content ) {
-                continue;
-            }
-
             $headers = $this->parse_plugin_headers( $content );
             if ( empty( $headers['Plugin Name'] ) || empty( $headers['Version'] ) ) {
                 continue;
@@ -142,6 +128,102 @@ class PluginZipMetadataExtractor {
         }
 
         return $candidates;
+    }
+
+    /**
+     * Read ZIP entries as a map of relative path => content.
+     *
+     * @param string $zip_path ZIP path.
+     * @return array<string,string>|\WP_Error
+     */
+    private function read_zip_entries( $zip_path ) {
+        $zip_path = (string) $zip_path;
+        if ( '' === $zip_path || ! is_readable( $zip_path ) ) {
+            return new \WP_Error( 'zip_unreadable', __( 'Uploaded ZIP file is not readable.', 'bangla-track-server' ) );
+        }
+
+        if ( class_exists( 'ZipArchive' ) ) {
+            $zip_entries = $this->read_zip_entries_with_ziparchive( $zip_path );
+            if ( ! is_wp_error( $zip_entries ) ) {
+                return $zip_entries;
+            }
+        }
+
+        return $this->read_zip_entries_with_pclzip( $zip_path );
+    }
+
+    /**
+     * Read ZIP entries with ZipArchive extension.
+     *
+     * @param string $zip_path ZIP path.
+     * @return array<string,string>|\WP_Error
+     */
+    private function read_zip_entries_with_ziparchive( $zip_path ) {
+        $zip = new \ZipArchive();
+        $opened = $zip->open( $zip_path );
+        if ( true !== $opened ) {
+            return new \WP_Error( 'zip_open_failed', __( 'Could not open ZIP file.', 'bangla-track-server' ) );
+        }
+
+        $entries = array();
+        for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+            $entry_name = $this->normalize_entry_name( (string) $zip->getNameIndex( $i ) );
+            if ( '' === $entry_name || str_ends_with( $entry_name, '/' ) ) {
+                continue;
+            }
+
+            $content = $zip->getFromIndex( $i );
+            if ( false === $content ) {
+                continue;
+            }
+
+            $entries[ $entry_name ] = (string) $content;
+        }
+
+        $zip->close();
+        return $entries;
+    }
+
+    /**
+     * Read ZIP entries with bundled WordPress PclZip fallback.
+     *
+     * @param string $zip_path ZIP path.
+     * @return array<string,string>|\WP_Error
+     */
+    private function read_zip_entries_with_pclzip( $zip_path ) {
+        mbstring_binary_safe_encoding();
+        require_once ABSPATH . 'wp-admin/includes/class-pclzip.php';
+
+        $archive = new \PclZip( $zip_path );
+        $files = $archive->extract( PCLZIP_OPT_EXTRACT_AS_STRING );
+        reset_mbstring_encoding();
+
+        if ( ! is_array( $files ) ) {
+            return new \WP_Error( 'zip_open_failed', __( 'Could not open ZIP file.', 'bangla-track-server' ) );
+        }
+
+        $entries = array();
+        foreach ( $files as $file ) {
+            $entry_name = $this->normalize_entry_name( (string) ( $file['filename'] ?? '' ) );
+            if ( '' === $entry_name || str_ends_with( $entry_name, '/' ) ) {
+                continue;
+            }
+
+            $entries[ $entry_name ] = (string) ( $file['content'] ?? '' );
+        }
+
+        return $entries;
+    }
+
+    /**
+     * Normalize ZIP entry names to forward-slash relative paths.
+     *
+     * @param string $entry_name Entry path.
+     * @return string
+     */
+    private function normalize_entry_name( $entry_name ) {
+        $entry_name = str_replace( '\\', '/', (string) $entry_name );
+        return ltrim( $entry_name, '/' );
     }
 
     /**
@@ -207,27 +289,23 @@ class PluginZipMetadataExtractor {
     /**
      * Extract changelog text from ZIP.
      *
-     * @param \ZipArchive $zip Zip object.
+     * @param array<string,string> $entries ZIP entries map.
      * @return string
      */
-    private function extract_changelog( \ZipArchive $zip ) {
-        $readme_entry = $this->find_file_case_insensitive( $zip, array( 'readme.txt' ) );
+    private function extract_changelog( array $entries ) {
+        $readme_entry = $this->find_file_case_insensitive( $entries, array( 'readme.txt' ) );
         if ( $readme_entry ) {
-            $readme = $zip->getFromName( $readme_entry );
-            if ( false !== $readme ) {
-                $from_readme = $this->extract_from_readme_changelog( (string) $readme );
-                if ( '' !== $from_readme ) {
-                    return $from_readme;
-                }
+            $readme = (string) $entries[ $readme_entry ];
+            $from_readme = $this->extract_from_readme_changelog( $readme );
+            if ( '' !== $from_readme ) {
+                return $from_readme;
             }
         }
 
-        $changelog_entry = $this->find_file_case_insensitive( $zip, array( 'changelog.md', 'changelog.txt', 'CHANGELOG.md', 'CHANGELOG.txt' ) );
+        $changelog_entry = $this->find_file_case_insensitive( $entries, array( 'changelog.md', 'changelog.txt', 'CHANGELOG.md', 'CHANGELOG.txt' ) );
         if ( $changelog_entry ) {
-            $changelog = $zip->getFromName( $changelog_entry );
-            if ( false !== $changelog ) {
-                return trim( (string) $changelog );
-            }
+            $changelog = (string) $entries[ $changelog_entry ];
+            return trim( $changelog );
         }
 
         return '';
@@ -236,15 +314,14 @@ class PluginZipMetadataExtractor {
     /**
      * Find a file in ZIP by file basename, case-insensitive.
      *
-     * @param \ZipArchive     $zip Zip object.
+     * @param array<string,string> $entries ZIP entries map.
      * @param array<int,string> $file_names Candidate names.
      * @return string
      */
-    private function find_file_case_insensitive( \ZipArchive $zip, array $file_names ) {
+    private function find_file_case_insensitive( array $entries, array $file_names ) {
         $targets = array_map( 'strtolower', $file_names );
 
-        for ( $i = 0; $i < $zip->numFiles; $i++ ) {
-            $entry = (string) $zip->getNameIndex( $i );
+        foreach ( $entries as $entry => $unused_content ) {
             if ( empty( $entry ) ) {
                 continue;
             }
