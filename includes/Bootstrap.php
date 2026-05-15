@@ -10,8 +10,10 @@ namespace BanglaTrackServer;
 use BanglaTrackServer\Admin\Dashboard;
 use BanglaTrackServer\Admin\LicensesPage;
 use BanglaTrackServer\Admin\ActivationsPage;
+use BanglaTrackServer\Admin\PluginReleasesPage;
 use BanglaTrackServer\Database\Installer;
 use BanglaTrackServer\REST\LicenseController;
+use BanglaTrackServer\REST\ReleaseDownloadController;
 use BanglaTrackServer\WooCommerce\ProductLicenseFields;
 use BanglaTrackServer\WooCommerce\LicenseEntitlementManager;
 
@@ -30,6 +32,13 @@ class Bootstrap {
      * @var Bootstrap|null
      */
     private static $instance = null;
+
+    /**
+     * Plugin releases admin page instance.
+     *
+     * @var PluginReleasesPage|null
+     */
+    private $plugin_releases_page = null;
 
     /**
      * Get the singleton instance.
@@ -62,6 +71,7 @@ class Bootstrap {
         }
 
         if ( is_admin() ) {
+            $this->plugin_releases_page = new PluginReleasesPage();
             add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
             add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 
@@ -119,6 +129,15 @@ class Bootstrap {
             'bt-server-activations',
             array( new ActivationsPage(), 'render' )
         );
+
+        add_submenu_page(
+            'bt-server-dashboard',
+            __( 'Plugin Releases', 'bangla-track-server' ),
+            __( 'Plugin Releases', 'bangla-track-server' ),
+            'manage_options',
+            'bt-server-plugin-releases',
+            array( $this->plugin_releases_page, 'render' )
+        );
     }
 
     /**
@@ -129,6 +148,9 @@ class Bootstrap {
     public function init_rest_api() {
         $controller = new LicenseController();
         $controller->register_routes();
+
+        $release_controller = new ReleaseDownloadController();
+        $release_controller->register_routes();
     }
 
     /**

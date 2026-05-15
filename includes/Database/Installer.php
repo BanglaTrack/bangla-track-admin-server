@@ -44,7 +44,8 @@ class Installer {
         global $wpdb;
         $charset_collate = $wpdb->get_charset_collate();
 
-        $licenses_table    = $wpdb->prefix . 'bt_licenses';
+        $licenses_table     = $wpdb->prefix . 'bt_licenses';
+        $plugin_releases_table = $wpdb->prefix . 'bt_plugin_releases';
         $entitlements_table = $wpdb->prefix . 'bt_license_entitlements';
         $activations_table = $wpdb->prefix . 'bt_activations';
         $usage_table       = $wpdb->prefix . 'bt_usage';
@@ -109,6 +110,28 @@ class Installer {
             KEY license_id (license_id)
         ) {$charset_collate};
 
+        CREATE TABLE {$plugin_releases_table} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            plugin_type VARCHAR(20) NOT NULL,
+            plugin_name VARCHAR(255) NULL,
+            version VARCHAR(50) NOT NULL,
+            file_path TEXT NOT NULL,
+            file_name VARCHAR(255) NOT NULL,
+            file_size BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+            changelog LONGTEXT NULL,
+            requires_wp VARCHAR(50) NULL,
+            requires_php VARCHAR(50) NULL,
+            description TEXT NULL,
+            text_domain VARCHAR(100) NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            uploaded_by BIGINT(20) UNSIGNED NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY plugin_type (plugin_type),
+            KEY is_active (is_active)
+        ) {$charset_collate};
+
         CREATE TABLE {$activations_table} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             license_id BIGINT(20) UNSIGNED NOT NULL,
@@ -159,6 +182,7 @@ class Installer {
     }
 
     public static function get_licenses_table() { global $wpdb; return $wpdb->prefix . 'bt_licenses'; }
+    public static function get_plugin_releases_table() { global $wpdb; return $wpdb->prefix . 'bt_plugin_releases'; }
     public static function get_license_entitlements_table() { global $wpdb; return $wpdb->prefix . 'bt_license_entitlements'; }
     public static function get_activations_table() { global $wpdb; return $wpdb->prefix . 'bt_activations'; }
     public static function get_usage_table() { global $wpdb; return $wpdb->prefix . 'bt_usage'; }

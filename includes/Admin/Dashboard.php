@@ -111,6 +111,9 @@ class Dashboard {
                     <a href="<?php echo esc_url( admin_url( 'admin.php?page=bt-server-activations' ) ); ?>" class="button button-secondary">
                         <?php esc_html_e( 'View All Activations', 'bangla-track-server' ); ?>
                     </a>
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=bt-server-plugin-releases' ) ); ?>" class="button button-secondary">
+                        <?php esc_html_e( 'Manage Plugin Releases', 'bangla-track-server' ); ?>
+                    </a>
 
                     <hr>
 

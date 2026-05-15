@@ -15,7 +15,7 @@ body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses {
     color: var(--bt-text);
     background: radial-gradient(circle at 0% 0%, #f4fbf7 0%, rgba(244, 251, 247, 0) 45%);
     border-radius: 18px;
-    padding: 10px 0 0;
+    padding: 20px;
 }
 
 body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses,
@@ -318,6 +318,59 @@ body.woocommerce-account .woocommerce-MyAccount-content .bt-license-grid__value 
     }
 }
 
+body.woocommerce-account .woocommerce-MyAccount-content .bt-plugin-downloads {
+    margin-top: 22px;
+    padding: 18px;
+    border: 1px solid #dcebe3;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #fbfefd 0%, #f4fbf8 100%);
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-plugin-downloads__title {
+    margin: 0 !important;
+    font-size: 22px !important;
+    font-weight: 700 !important;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-plugin-downloads__subtitle {
+    margin: 8px 0 0 !important;
+    color: #5a7064 !important;
+    font-size: 14px !important;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-plugin-downloads__grid {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-plugin-download-card {
+    background: #fff;
+    border: 1px solid #d8e8e0;
+    border-radius: 12px;
+    padding: 14px;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-plugin-download-card__title {
+    margin: 0 !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-plugin-download-card__meta {
+    margin: 9px 0 14px !important;
+    color: #4f665a !important;
+    font-size: 14px !important;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .bt-plugin-downloads__message {
+    margin: 10px 0 0 !important;
+    color: #54665d !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+}
+
 @media (max-width: 767px) {
     body.woocommerce-account .woocommerce-MyAccount-content .bt-account-licenses__title {
         font-size: 28px !important;
@@ -346,6 +399,10 @@ body.woocommerce-account .woocommerce-MyAccount-content .bt-license-grid__value 
     }
 
     body.woocommerce-account .woocommerce-MyAccount-content .bt-license-grid {
+        grid-template-columns: 1fr;
+    }
+
+    body.woocommerce-account .woocommerce-MyAccount-content .bt-plugin-downloads__grid {
         grid-template-columns: 1fr;
     }
 }
