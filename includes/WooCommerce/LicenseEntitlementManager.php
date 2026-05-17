@@ -369,8 +369,13 @@ class LicenseEntitlementManager {
         $generated_count = 0;
 
         foreach ( $entitlements as $entitlement ) {
-            $status = sanitize_key( (string) $entitlement->status );
-            if ( 'pending' === $status ) {
+            $status       = sanitize_key( (string) $entitlement->status );
+            $product_code = sanitize_key( (string) $entitlement->product_code );
+
+            // Free plan doesn't need license key generation — always count as active.
+            if ( 'free_forever' === $product_code ) {
+                $generated_count++;
+            } elseif ( 'pending' === $status ) {
                 $pending_count++;
             } elseif ( 'generated' === $status ) {
                 $generated_count++;
@@ -413,13 +418,25 @@ class LicenseEntitlementManager {
             echo '<h4 class="bt-license-card__title">' . esc_html( $product_name ) . '</h4>';
             echo '<p class="bt-license-card__order">' . esc_html__( 'Order', 'bangla-track-server' ) . ' #' . esc_html( (string) $order_number ) . '</p>';
             echo '</div>';
+
+            // Free plan is always active — no license key generation needed.
+            if ( 'free_forever' === $product_code ) {
+                $status_label = __( 'Active', 'bangla-track-server' );
+                $status_class = 'bt-status-pill--generated';
+            }
+
             echo '<span class="bt-status-pill ' . esc_attr( $status_class ) . '">' . esc_html( $status_label ) . '</span>';
             echo '</div>';
             echo '<div class="bt-license-card__meta">';
             echo '<span class="bt-meta-chip">' . esc_html__( 'Product code', 'bangla-track-server' ) . ': <code>' . esc_html( $product_code ) . '</code></span>';
             echo '</div>';
 
-            if ( 'pending' === $entitlement->status ) {
+            if ( 'free_forever' === $product_code ) {
+                // Free plan uses UUID + signed policies, no license key needed.
+                echo '<div class="bt-license-card__free-note">';
+                echo '<p class="bt-license-card__note">' . esc_html__( 'Free plan is active. No license key is required — the plugin works automatically after installation.', 'bangla-track-server' ) . '</p>';
+                echo '</div>';
+            } elseif ( 'pending' === $entitlement->status ) {
                 echo '<p class="bt-license-card__note">' . esc_html__( 'License is not generated yet. Generate now to receive your activation key.', 'bangla-track-server' ) . '</p>';
                 echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="bt-license-card__actions">';
                 echo '<input type="hidden" name="action" value="bt_generate_license_key" />';
