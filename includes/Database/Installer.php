@@ -44,12 +44,13 @@ class Installer {
         global $wpdb;
         $charset_collate = $wpdb->get_charset_collate();
 
-        $licenses_table     = $wpdb->prefix . 'bt_licenses';
+        $licenses_table        = $wpdb->prefix . 'bt_licenses';
         $plugin_releases_table = $wpdb->prefix . 'bt_plugin_releases';
-        $entitlements_table = $wpdb->prefix . 'bt_license_entitlements';
-        $activations_table = $wpdb->prefix . 'bt_activations';
-        $usage_table       = $wpdb->prefix . 'bt_usage';
-        $provider_lock     = $wpdb->prefix . 'bt_provider_locks';
+        $entitlements_table    = $wpdb->prefix . 'bt_license_entitlements';
+        $activations_table     = $wpdb->prefix . 'bt_activations';
+        $usage_table           = $wpdb->prefix . 'bt_usage';
+        $provider_lock         = $wpdb->prefix . 'bt_provider_locks';
+        $free_sites_table      = $wpdb->prefix . 'bt_free_sites';
 
         $sql = "CREATE TABLE {$licenses_table} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -175,6 +176,26 @@ class Installer {
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY license_activation (license_id, activation_id)
+        ) {$charset_collate};
+
+        CREATE TABLE {$free_sites_table} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            site_uuid VARCHAR(36) NOT NULL,
+            site_url_hash VARCHAR(100) NOT NULL DEFAULT '',
+            plugin_version VARCHAR(20) NOT NULL DEFAULT '',
+            wp_version VARCHAR(20) NOT NULL DEFAULT '',
+            php_version VARCHAR(20) NOT NULL DEFAULT '',
+            active_provider_count INT(11) NOT NULL DEFAULT 0,
+            booking_count INT(11) NOT NULL DEFAULT 0,
+            status ENUM('active','inactive') NOT NULL DEFAULT 'active',
+            registered_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY site_uuid (site_uuid),
+            KEY status (status),
+            KEY site_url_hash (site_url_hash)
         ) {$charset_collate};";
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -187,6 +208,7 @@ class Installer {
     public static function get_activations_table() { global $wpdb; return $wpdb->prefix . 'bt_activations'; }
     public static function get_usage_table() { global $wpdb; return $wpdb->prefix . 'bt_usage'; }
     public static function get_provider_locks_table() { global $wpdb; return $wpdb->prefix . 'bt_provider_locks'; }
+    public static function get_free_sites_table() { global $wpdb; return $wpdb->prefix . 'bt_free_sites'; }
 
     /**
      * Normalize older legacy data values.

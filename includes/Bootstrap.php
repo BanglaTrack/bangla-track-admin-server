@@ -13,6 +13,7 @@ use BanglaTrackServer\Admin\ActivationsPage;
 use BanglaTrackServer\Admin\PluginReleasesPage;
 use BanglaTrackServer\Database\Installer;
 use BanglaTrackServer\REST\LicenseController;
+use BanglaTrackServer\REST\FreePolicyController;
 use BanglaTrackServer\REST\ReleaseDownloadController;
 use BanglaTrackServer\WooCommerce\ProductLicenseFields;
 use BanglaTrackServer\WooCommerce\LicenseEntitlementManager;
@@ -148,6 +149,9 @@ class Bootstrap {
     public function init_rest_api() {
         $controller = new LicenseController();
         $controller->register_routes();
+
+        $free_policy_controller = new FreePolicyController();
+        $free_policy_controller->register_routes();
 
         $release_controller = new ReleaseDownloadController();
         $release_controller->register_routes();
