@@ -16,7 +16,8 @@ jobs:
 
       - name: Build deployment archive
         run: |
-          tar --exclude-vcs --exclude-from='.rsyncignore' --exclude='plugin.tar.gz' -czf plugin.tar.gz .
+          tar --exclude-vcs --exclude-from='.rsyncignore' --exclude='plugin.tar.gz' -czf /tmp/plugin.tar.gz .
+          mv /tmp/plugin.tar.gz plugin.tar.gz
 
       - name: Upload archive via SCP
         uses: appleboy/scp-action@v1
