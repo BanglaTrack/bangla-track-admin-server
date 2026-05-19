@@ -3,13 +3,13 @@
  * Plugin Name: Bangla Track Admin Server
  * Plugin URI: http://banglatrack.com/
  * Description: License management and monitoring server for Bangla Track Pro installations.
- * Version: 1.3.0
+ * Version: 1.4.0
  * Author: Zahid Uddin
  * Author URI: http://zahiduddin.com/
  * Text Domain: bangla-track-server
  * Domain Path: /languages
  * Requires at least: 5.8
- * Requires PHP: 7.4
+ * Requires PHP: 8.1
  *
  * @package BanglaTrackServer
  */
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'BT_SERVER_VERSION', '1.3.0' );
+define( 'BT_SERVER_VERSION', '1.4.0' );
 define( 'BT_SERVER_PLUGIN_FILE', __FILE__ );
 define( 'BT_SERVER_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BT_SERVER_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

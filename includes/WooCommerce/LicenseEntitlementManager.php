@@ -9,6 +9,7 @@ namespace BanglaTrackServer\WooCommerce;
 
 use BanglaTrackServer\Database\EntitlementRepository;
 use BanglaTrackServer\Database\LicenseRepository;
+use BanglaTrackServer\Database\ActivationRepository;
 use BanglaTrackServer\Database\PluginReleaseRepository;
 use BanglaTrackServer\Services\LicenseProductRules;
 use BanglaTrackServer\Services\ReleaseDownloadPermissionService;
@@ -39,6 +40,13 @@ class LicenseEntitlementManager {
     private $license_repo;
 
     /**
+     * Activation repository.
+     *
+     * @var ActivationRepository
+     */
+    private $activation_repo;
+
+    /**
      * Plugin release repository.
      *
      * @var PluginReleaseRepository
@@ -58,6 +66,7 @@ class LicenseEntitlementManager {
     public function __construct() {
         $this->entitlement_repo = new EntitlementRepository();
         $this->license_repo     = new LicenseRepository();
+        $this->activation_repo  = new ActivationRepository();
         $this->release_repo     = new PluginReleaseRepository();
         $this->download_permission_service = new ReleaseDownloadPermissionService();
     }
@@ -79,6 +88,8 @@ class LicenseEntitlementManager {
         add_action( 'woocommerce_before_calculate_totals', array( $this, 'enforce_single_product_cart_integrity' ), 5 );
 
         add_action( 'woocommerce_order_status_completed', array( $this, 'handle_order_completed' ), 20, 1 );
+        add_action( 'woocommerce_order_status_cancelled', array( $this, 'handle_order_cancelled' ), 20, 1 );
+        add_action( 'woocommerce_order_status_refunded', array( $this, 'handle_order_refunded' ), 20, 1 );
         add_action( 'admin_post_bt_generate_license_key', array( $this, 'handle_generate_license_request' ) );
         add_action( 'admin_post_nopriv_bt_generate_license_key', array( $this, 'handle_generate_license_request' ) );
     }
@@ -832,5 +843,114 @@ class LicenseEntitlementManager {
             return 'bt-status-pill--muted';
         }
         return 'bt-status-pill--muted';
+    }
+
+    /**
+     * Handle order cancellation — revoke associated licenses.
+     *
+     * When a WooCommerce order is cancelled, all linked entitlements
+     * and licenses are revoked. Active site activations are deactivated
+     * so clients degrade on their next heartbeat.
+     *
+     * @param int $order_id WooCommerce order ID.
+     * @return void
+     */
+    public function handle_order_cancelled( $order_id ): void {
+        $this->revoke_order_licenses( (int) $order_id, 'cancelled' );
+    }
+
+    /**
+     * Handle order refund — revoke associated licenses.
+     *
+     * When a WooCommerce order is refunded (full refund), all linked
+     * entitlements and licenses are revoked.
+     *
+     * @param int $order_id WooCommerce order ID.
+     * @return void
+     */
+    public function handle_order_refunded( $order_id ): void {
+        $this->revoke_order_licenses( (int) $order_id, 'refunded' );
+    }
+
+    /**
+     * Core revocation logic shared by cancel and refund handlers.
+     *
+     * Iterates all line items in the order, finds linked entitlements
+     * and licenses, and revokes them.
+     *
+     * @param int    $order_id WooCommerce order ID.
+     * @param string $reason   Either 'cancelled' or 'refunded'.
+     * @return void
+     */
+    private function revoke_order_licenses( int $order_id, string $reason ): void {
+        if ( ! function_exists( 'wc_get_order' ) ) {
+            return;
+        }
+
+        $order = wc_get_order( $order_id );
+        if ( ! $order ) {
+            return;
+        }
+
+        $items         = $order->get_items( 'line_item' );
+        $revoked_count = 0;
+        $license_status = ( 'refunded' === $reason ) ? 'expired' : 'cancelled';
+
+        foreach ( $items as $item_id => $item ) {
+            // Only process items that have a linked entitlement.
+            $entitlement_created = wc_get_order_item_meta( $item_id, '_bt_license_entitlement_created', true );
+            if ( 'yes' !== $entitlement_created ) {
+                continue;
+            }
+
+            $entitlement_id = absint( wc_get_order_item_meta( $item_id, '_bt_license_entitlement_id', true ) );
+            if ( $entitlement_id <= 0 ) {
+                continue;
+            }
+
+            // Update entitlement status.
+            $this->entitlement_repo->update_status( $entitlement_id, $reason );
+
+            // Find and revoke the linked license.
+            $entitlement = $this->entitlement_repo->get_by_id( $entitlement_id );
+            if ( ! $entitlement || empty( $entitlement->license_id ) ) {
+                continue;
+            }
+
+            $license_id = (int) $entitlement->license_id;
+
+            // Revoke the license.
+            $this->license_repo->update( $license_id, array(
+                'status' => $license_status,
+            ) );
+
+            // Deactivate all active site slots for this license.
+            // This forces every client site to degrade to free on
+            // their next heartbeat check.
+            $deactivated = $this->activation_repo->deactivate_all_for_license( $license_id );
+
+            $revoked_count++;
+
+            // Log the deactivation count for debugging.
+            if ( $deactivated > 0 ) {
+                error_log( sprintf(
+                    '[BT Server] License #%d %s: %d site activation(s) deactivated.',
+                    $license_id,
+                    $reason,
+                    $deactivated
+                ) );
+            }
+        }
+
+        if ( $revoked_count > 0 ) {
+            $order->add_order_note(
+                sprintf(
+                    /* translators: 1: number of licenses, 2: reason (cancelled/refunded) */
+                    __( 'Bangla Track: %1$d license(s) %2$s. Active site activations have been deactivated.', 'bangla-track-server' ),
+                    $revoked_count,
+                    $reason
+                )
+            );
+        }
     }
 }

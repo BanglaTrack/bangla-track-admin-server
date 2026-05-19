@@ -154,4 +154,51 @@ class EntitlementRepository {
             array( '%d' )
         );
     }
+
+    /**
+     * Update the status of an entitlement record.
+     *
+     * Used during order cancellation/refund to revoke entitlements.
+     *
+     * @param int    $entitlement_id Entitlement ID.
+     * @param string $status         New status ('cancelled', 'refunded', etc.).
+     * @return bool True on success.
+     */
+    public function update_status( int $entitlement_id, string $status ): bool {
+        global $wpdb;
+        $table = Installer::get_license_entitlements_table();
+
+        $allowed = array( 'pending', 'generated', 'cancelled', 'refunded' );
+        if ( ! in_array( $status, $allowed, true ) ) {
+            return false;
+        }
+
+        return false !== $wpdb->update(
+            $table,
+            array( 'status' => $status ),
+            array( 'id' => $entitlement_id ),
+            array( '%s' ),
+            array( '%d' )
+        );
+    }
+
+    /**
+     * Get entitlement by linked license ID.
+     *
+     * @param int $license_id License ID.
+     * @return object|null Entitlement row or null.
+     */
+    public function get_by_license_id( int $license_id ): ?object {
+        global $wpdb;
+        $table = Installer::get_license_entitlements_table();
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE license_id = %d LIMIT 1",
+                $license_id
+            )
+        );
+
+        return $row ?: null;
+    }
 }

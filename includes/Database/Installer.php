@@ -200,6 +200,37 @@ class Installer {
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta( $sql );
+
+        // dbDelta() strips ENGINE= clauses, so enforce InnoDB separately.
+        self::enforce_innodb_engine();
+    }
+
+    /**
+     * Ensure all plugin tables use InnoDB engine.
+     *
+     * InnoDB provides row-level locking, ACID transactions, and foreign
+     * key support — critical for license activation concurrency safety.
+     *
+     * @return void
+     */
+    private static function enforce_innodb_engine(): void {
+        global $wpdb;
+
+        $tables = array(
+            'bt_licenses',
+            'bt_license_entitlements',
+            'bt_activations',
+            'bt_plugin_releases',
+            'bt_usage',
+            'bt_provider_locks',
+            'bt_free_sites',
+        );
+
+        foreach ( $tables as $table ) {
+            $full_name = $wpdb->prefix . $table;
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $wpdb->query( "ALTER TABLE `{$full_name}` ENGINE = InnoDB" );
+        }
     }
 
     public static function get_licenses_table() { global $wpdb; return $wpdb->prefix . 'bt_licenses'; }

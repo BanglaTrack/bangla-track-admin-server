@@ -77,6 +77,30 @@ class ActivationRepository {
         return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE status = %s", $is_active ? 'active' : 'inactive' ) );
     }
 
+    /**
+     * Deactivate ALL active activations for a given license.
+     *
+     * Called when a license is cancelled or refunded. Forces all
+     * client sites using this license to degrade on their next
+     * heartbeat check.
+     *
+     * @param int $license_id License ID.
+     * @return int Number of rows updated.
+     */
+    public function deactivate_all_for_license( int $license_id ): int {
+        global $wpdb;
+        $table = Installer::get_activations_table();
+
+        $updated = $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE {$table} SET status = 'inactive' WHERE license_id = %d AND status = 'active'",
+                $license_id
+            )
+        );
+
+        return ( false !== $updated ) ? (int) $updated : 0;
+    }
+
     private function normalize_url( $url ) {
         $url = esc_url_raw( trim( (string) $url ) );
         $url = preg_replace( '#^https?://#', '', strtolower( $url ) );

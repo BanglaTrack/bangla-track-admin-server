@@ -5,6 +5,7 @@ use BanglaTrackServer\Database\ActivationRepository;
 use BanglaTrackServer\Database\LicenseRepository;
 use BanglaTrackServer\Database\ProviderLockRepository;
 use BanglaTrackServer\Database\UsageRepository;
+use BanglaTrackServer\Core\PolicySigner;
 use WP_REST_Controller;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -21,23 +22,76 @@ class LicenseController extends WP_REST_Controller {
     private $activation_repo;
     private $usage_repo;
     private $provider_lock_repo;
+    private $policy_signer;
 
     public function __construct() {
         $this->license_repo = new LicenseRepository();
         $this->activation_repo = new ActivationRepository();
         $this->usage_repo = new UsageRepository();
         $this->provider_lock_repo = new ProviderLockRepository();
+        $this->policy_signer = new PolicySigner();
     }
 
     public function register_routes() {
-        $public = array( 'methods' => WP_REST_Server::CREATABLE, 'permission_callback' => '__return_true' );
-        register_rest_route( $this->namespace, '/license/activate', array_merge( $public, array( 'callback' => array( $this, 'activate_license' ) ) ) );
-        register_rest_route( $this->namespace, '/license/deactivate', array_merge( $public, array( 'callback' => array( $this, 'deactivate_license' ) ) ) );
-        register_rest_route( $this->namespace, '/license/status', array_merge( $public, array( 'callback' => array( $this, 'license_status' ) ) ) );
-        register_rest_route( $this->namespace, '/usage/can-book', array_merge( $public, array( 'callback' => array( $this, 'can_book' ) ) ) );
-        register_rest_route( $this->namespace, '/usage/report-booking', array_merge( $public, array( 'callback' => array( $this, 'report_booking' ) ) ) );
-        register_rest_route( $this->namespace, '/provider/lock', array_merge( $public, array( 'callback' => array( $this, 'lock_provider' ) ) ) );
-        register_rest_route( $this->namespace, '/provider/can-use', array_merge( $public, array( 'callback' => array( $this, 'provider_can_use' ) ) ) );
+        $public_args = array(
+            'methods'             => WP_REST_Server::CREATABLE,
+            'permission_callback' => '__return_true',
+        );
+
+        // Shared schema for license_key + site_url parameters.
+        $license_site_args = array(
+            'license_key' => array(
+                'type'              => 'string',
+                'required'          => true,
+                'sanitize_callback' => 'sanitize_text_field',
+                'description'       => __( 'License key in BTP-XXXX-XXXX-XXXX format.', 'bangla-track-server' ),
+            ),
+            'site_url' => array(
+                'type'              => 'string',
+                'required'          => true,
+                'sanitize_callback' => 'esc_url_raw',
+                'description'       => __( 'The site URL requesting activation.', 'bangla-track-server' ),
+            ),
+            'site_name' => array(
+                'type'              => 'string',
+                'required'          => false,
+                'sanitize_callback' => 'sanitize_text_field',
+                'default'           => '',
+            ),
+            'wp_version' => array(
+                'type'              => 'string',
+                'required'          => false,
+                'sanitize_callback' => 'sanitize_text_field',
+                'default'           => '',
+            ),
+            'plugin_version' => array(
+                'type'              => 'string',
+                'required'          => false,
+                'sanitize_callback' => 'sanitize_text_field',
+                'default'           => '',
+            ),
+            'php_version' => array(
+                'type'              => 'string',
+                'required'          => false,
+                'sanitize_callback' => 'sanitize_text_field',
+                'default'           => '',
+            ),
+        );
+
+        register_rest_route( $this->namespace, '/license/activate', array_merge( $public_args, array( 'callback' => array( $this, 'activate_license' ), 'args' => $license_site_args ) ) );
+        register_rest_route( $this->namespace, '/license/deactivate', array_merge( $public_args, array( 'callback' => array( $this, 'deactivate_license' ), 'args' => $license_site_args ) ) );
+        register_rest_route( $this->namespace, '/license/status', array_merge( $public_args, array( 'callback' => array( $this, 'license_status' ), 'args' => $license_site_args ) ) );
+        register_rest_route( $this->namespace, '/usage/can-book', array_merge( $public_args, array( 'callback' => array( $this, 'can_book' ), 'args' => $license_site_args ) ) );
+        register_rest_route( $this->namespace, '/usage/report-booking', array_merge( $public_args, array(
+            'callback' => array( $this, 'report_booking' ),
+            'args'     => array_merge( $license_site_args, array(
+                'provider_slug'  => array( 'type' => 'string', 'required' => true, 'sanitize_callback' => 'sanitize_key' ),
+                'order_id'       => array( 'type' => 'integer', 'required' => true ),
+                'consignment_id' => array( 'type' => 'string', 'required' => false, 'sanitize_callback' => 'sanitize_text_field', 'default' => '' ),
+            ) ),
+        ) ) );
+        register_rest_route( $this->namespace, '/provider/lock', array_merge( $public_args, array( 'callback' => array( $this, 'lock_provider' ), 'args' => $license_site_args ) ) );
+        register_rest_route( $this->namespace, '/provider/can-use', array_merge( $public_args, array( 'callback' => array( $this, 'provider_can_use' ), 'args' => $license_site_args ) ) );
     }
 
     public function activate_license( WP_REST_Request $request ) {
@@ -45,6 +99,23 @@ class LicenseController extends WP_REST_Controller {
         if ( is_wp_error( $ctx ) ) { return $ctx; }
 
         $license = $ctx['license'];
+
+        // ── max_sites enforcement ──
+        // Check if the license has reached its maximum concurrent site slots.
+        // Re-activations on the same URL are always allowed (slot reuse).
+        $max_sites    = max( 1, (int) ( $license->max_sites ?: $license->max_activations ?: 1 ) );
+        $active_count = $this->activation_repo->get_active_count( (int) $license->id );
+        $existing     = $this->activation_repo->get_by_license_and_site( (int) $license->id, $ctx['site']['site_url'] );
+
+        if ( $active_count >= $max_sites && ! $existing ) {
+            return new WP_REST_Response( array(
+                'success'      => false,
+                'message'      => __( 'Maximum site activations reached. Deactivate an existing site first.', 'bangla-track-server' ),
+                'max_sites'    => $max_sites,
+                'active_count' => $active_count,
+            ), 200 );
+        }
+
         $activation_id = $this->activation_repo->activate( (int) $license->id, $ctx['site'] );
         if ( ! $activation_id ) {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Activation failed.', 'bangla-track-server' ) ), 200 );
@@ -189,6 +260,9 @@ class LicenseController extends WP_REST_Controller {
             'provider' => array( 'locked_provider' => $locked ),
             'expires_at' => $license->expires_at,
             'checked_at' => gmdate( 'c' ),
+            // HMAC-signed policy for the unified client's PolicyGuard.
+            // The client calls PolicyGuard::validate_and_apply() with this payload.
+            'signed_policy' => $this->policy_signer->sign_license_policy( $license ),
         );
     }
 
