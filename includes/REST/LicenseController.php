@@ -4,6 +4,7 @@ namespace BanglaTrackServer\REST;
 use BanglaTrackServer\Database\ActivationRepository;
 use BanglaTrackServer\Database\LicenseRepository;
 use BanglaTrackServer\Database\ProviderLockRepository;
+use BanglaTrackServer\Database\SitePluginsRepository;
 use BanglaTrackServer\Database\UsageRepository;
 use BanglaTrackServer\Core\PolicySigner;
 use WP_REST_Controller;
@@ -22,6 +23,7 @@ class LicenseController extends WP_REST_Controller {
     private $activation_repo;
     private $usage_repo;
     private $provider_lock_repo;
+    private $site_plugins_repo;
     private $policy_signer;
 
     public function __construct() {
@@ -29,6 +31,7 @@ class LicenseController extends WP_REST_Controller {
         $this->activation_repo = new ActivationRepository();
         $this->usage_repo = new UsageRepository();
         $this->provider_lock_repo = new ProviderLockRepository();
+        $this->site_plugins_repo = new SitePluginsRepository();
         $this->policy_signer = new PolicySigner();
     }
 
@@ -121,6 +124,11 @@ class LicenseController extends WP_REST_Controller {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Activation failed.', 'bangla-track-server' ) ), 200 );
         }
 
+        // Save installed plugins telemetry.
+        if ( ! empty( $ctx['installed_plugins'] ) ) {
+            $this->site_plugins_repo->save_plugins( 'activation', (int) $activation_id, $ctx['installed_plugins'] );
+        }
+
         return $this->status_response( $license, (int) $activation_id, true, $ctx['site']['site_url'] );
     }
 
@@ -132,6 +140,12 @@ class LicenseController extends WP_REST_Controller {
         $activation = $this->activation_repo->get_by_license_and_site( (int) $license->id, $ctx['site']['site_url'] );
         if ( $activation ) {
             $this->activation_repo->update_last_check( (int) $activation->id );
+
+            // Save installed plugins telemetry.
+            if ( ! empty( $ctx['installed_plugins'] ) ) {
+                $this->site_plugins_repo->save_plugins( 'activation', (int) $activation->id, $ctx['installed_plugins'] );
+            }
+
             return $this->status_response( $license, (int) $activation->id, true, $ctx['site']['site_url'] );
         }
 
@@ -306,7 +320,7 @@ class LicenseController extends WP_REST_Controller {
             'wp_version' => sanitize_text_field( (string) $request->get_param( 'wp_version' ) ),
             'plugin_version' => sanitize_text_field( (string) $request->get_param( 'plugin_version' ) ),
             'php_version' => sanitize_text_field( (string) $request->get_param( 'php_version' ) ),
-        ) );
+        ), 'installed_plugins' => $this->sanitize_installed_plugins( $request->get_param( 'installed_plugins' ) ) );
     }
 
     private function sanitize_provider( $provider ) {
@@ -341,5 +355,33 @@ class LicenseController extends WP_REST_Controller {
             return (bool) $license->multi_provider;
         }
         return 'pro' === $this->get_plan_code( $license );
+    }
+
+    /**
+     * Sanitize installed_plugins parameter from request.
+     *
+     * @param mixed $raw Raw parameter value.
+     * @return array Sanitized plugins array or empty array.
+     */
+    private function sanitize_installed_plugins( $raw ) {
+        if ( ! is_array( $raw ) || empty( $raw ) ) {
+            return array();
+        }
+
+        $sanitized = array();
+        foreach ( $raw as $slug => $data ) {
+            $slug = sanitize_key( (string) $slug );
+            if ( empty( $slug ) ) {
+                continue;
+            }
+            $data = is_array( $data ) ? $data : array();
+            $sanitized[ $slug ] = array(
+                'name'    => sanitize_text_field( (string) ( $data['name'] ?? $slug ) ),
+                'version' => sanitize_text_field( (string) ( $data['version'] ?? '' ) ),
+                'active'  => ! empty( $data['active'] ),
+            );
+        }
+
+        return $sanitized;
     }
 }
