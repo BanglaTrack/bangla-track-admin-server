@@ -10,6 +10,7 @@ namespace BanglaTrackServer;
 use BanglaTrackServer\Admin\Dashboard;
 use BanglaTrackServer\Admin\LicensesPage;
 use BanglaTrackServer\Admin\ActivationsPage;
+use BanglaTrackServer\Admin\FreeSitesPage;
 use BanglaTrackServer\Admin\PluginReleasesPage;
 use BanglaTrackServer\Database\Installer;
 use BanglaTrackServer\REST\LicenseController;
@@ -129,6 +130,15 @@ class Bootstrap {
             'manage_options',
             'bt-server-activations',
             array( new ActivationsPage(), 'render' )
+        );
+
+        add_submenu_page(
+            'bt-server-dashboard',
+            __( 'Free Sites', 'bangla-track-server' ),
+            __( 'Free Sites', 'bangla-track-server' ),
+            'manage_options',
+            'bt-server-free-sites',
+            array( new FreeSitesPage(), 'render' )
         );
 
         add_submenu_page(

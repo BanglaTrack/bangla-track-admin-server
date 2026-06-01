@@ -51,6 +51,7 @@ class Installer {
         $usage_table           = $wpdb->prefix . 'bt_usage';
         $provider_lock         = $wpdb->prefix . 'bt_provider_locks';
         $free_sites_table      = $wpdb->prefix . 'bt_free_sites';
+        $site_plugins_table    = $wpdb->prefix . 'bt_site_plugins';
 
         $sql = "CREATE TABLE {$licenses_table} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -196,6 +197,20 @@ class Installer {
             UNIQUE KEY site_uuid (site_uuid),
             KEY status (status),
             KEY site_url_hash (site_url_hash)
+        ) {$charset_collate};
+
+        CREATE TABLE {$site_plugins_table} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            source_type ENUM('activation','free_site') NOT NULL,
+            source_id BIGINT(20) UNSIGNED NOT NULL,
+            plugin_slug VARCHAR(191) NOT NULL,
+            plugin_name VARCHAR(255) NOT NULL DEFAULT '',
+            plugin_version VARCHAR(50) NOT NULL DEFAULT '',
+            is_active TINYINT(1) NOT NULL DEFAULT 0,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY source_plugin (source_type, source_id, plugin_slug),
+            KEY source_type_id (source_type, source_id)
         ) {$charset_collate};";
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -224,6 +239,7 @@ class Installer {
             'bt_usage',
             'bt_provider_locks',
             'bt_free_sites',
+            'bt_site_plugins',
         );
 
         foreach ( $tables as $table ) {
@@ -240,6 +256,7 @@ class Installer {
     public static function get_usage_table() { global $wpdb; return $wpdb->prefix . 'bt_usage'; }
     public static function get_provider_locks_table() { global $wpdb; return $wpdb->prefix . 'bt_provider_locks'; }
     public static function get_free_sites_table() { global $wpdb; return $wpdb->prefix . 'bt_free_sites'; }
+    public static function get_site_plugins_table() { global $wpdb; return $wpdb->prefix . 'bt_site_plugins'; }
 
     /**
      * Normalize older legacy data values.

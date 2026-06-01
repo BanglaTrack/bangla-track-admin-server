@@ -12,6 +12,7 @@
 namespace BanglaTrackServer\REST;
 
 use BanglaTrackServer\Database\FreeSiteRepository;
+use BanglaTrackServer\Database\SitePluginsRepository;
 use BanglaTrackServer\Services\FreePolicySigner;
 use WP_REST_Controller;
 use WP_REST_Request;
@@ -49,11 +50,19 @@ class FreePolicyController extends WP_REST_Controller {
 	private $signer;
 
 	/**
+	 * Site plugins repository.
+	 *
+	 * @var SitePluginsRepository
+	 */
+	private $site_plugins_repo;
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
-		$this->site_repo = new FreeSiteRepository();
-		$this->signer    = new FreePolicySigner();
+		$this->site_repo         = new FreeSiteRepository();
+		$this->signer            = new FreePolicySigner();
+		$this->site_plugins_repo = new SitePluginsRepository();
 	}
 
 	/**
@@ -118,7 +127,12 @@ class FreePolicyController extends WP_REST_Controller {
 
 		$site_uuid = $validated['site_uuid'];
 
-		$this->site_repo->upsert( $validated );
+		$site_id = $this->site_repo->upsert( $validated );
+
+		// Save installed plugins telemetry.
+		if ( $site_id && ! empty( $validated['installed_plugins'] ) ) {
+			$this->site_plugins_repo->save_plugins( 'free_site', (int) $site_id, $validated['installed_plugins'] );
+		}
 
 		$payload  = $this->signer->build_policy_payload(
 			'site_register',
@@ -155,9 +169,18 @@ class FreePolicyController extends WP_REST_Controller {
 		$site = $this->site_repo->get_by_uuid( $site_uuid );
 		if ( $site ) {
 			$this->site_repo->update_telemetry( $site_uuid, $validated );
+
+			// Save installed plugins telemetry.
+			if ( ! empty( $validated['installed_plugins'] ) ) {
+				$this->site_plugins_repo->save_plugins( 'free_site', (int) $site->id, $validated['installed_plugins'] );
+			}
 		} else {
 			// Auto-register if not found (handles edge case of DB reset).
-			$this->site_repo->upsert( $validated );
+			$site_id = $this->site_repo->upsert( $validated );
+
+			if ( $site_id && ! empty( $validated['installed_plugins'] ) ) {
+				$this->site_plugins_repo->save_plugins( 'free_site', (int) $site_id, $validated['installed_plugins'] );
+			}
 		}
 
 		$payload  = $this->signer->build_policy_payload(
@@ -407,9 +430,38 @@ class FreePolicyController extends WP_REST_Controller {
 			'plan'                  => 'free',
 			'active_provider_count' => absint( $request->get_param( 'active_provider_count' ) ),
 			'booking_count'         => absint( $request->get_param( 'booking_count' ) ),
+			'installed_plugins'     => $this->sanitize_installed_plugins( $request->get_param( 'installed_plugins' ) ),
 			'action'                => sanitize_key( (string) $request->get_param( 'action' ) ),
 			'timestamp'             => absint( $request->get_param( 'timestamp' ) ),
 			'request_id'            => sanitize_text_field( (string) $request->get_param( 'request_id' ) ),
 		);
+	}
+
+	/**
+	 * Sanitize installed_plugins parameter from request.
+	 *
+	 * @param mixed $raw Raw parameter value.
+	 * @return array Sanitized plugins array or empty array.
+	 */
+	private function sanitize_installed_plugins( $raw ) {
+		if ( ! is_array( $raw ) || empty( $raw ) ) {
+			return array();
+		}
+
+		$sanitized = array();
+		foreach ( $raw as $slug => $data ) {
+			$slug = sanitize_key( (string) $slug );
+			if ( empty( $slug ) ) {
+				continue;
+			}
+			$data = is_array( $data ) ? $data : array();
+			$sanitized[ $slug ] = array(
+				'name'    => sanitize_text_field( (string) ( $data['name'] ?? $slug ) ),
+				'version' => sanitize_text_field( (string) ( $data['version'] ?? '' ) ),
+				'active'  => ! empty( $data['active'] ),
+			);
+		}
+
+		return $sanitized;
 	}
 }
