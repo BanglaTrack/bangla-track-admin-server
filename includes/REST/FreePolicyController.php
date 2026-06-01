@@ -87,6 +87,12 @@ class FreePolicyController extends WP_REST_Controller {
 
 		register_rest_route(
 			$this->namespace,
+			'/usage/report-booking',
+			array_merge( $public, array( 'callback' => array( $this, 'report_booking_usage' ) ) )
+		);
+
+		register_rest_route(
+			$this->namespace,
 			'/site/deactivate',
 			array_merge( $public, array( 'callback' => array( $this, 'deactivate_site' ) ) )
 		);
@@ -212,6 +218,74 @@ class FreePolicyController extends WP_REST_Controller {
 			$decision['message']
 		);
 		$response = $this->signer->build_signed_response( $payload );
+
+		return new WP_REST_Response( $response, 200 );
+	}
+
+	/**
+	 * Handle an immediate booking usage update after a successful client booking.
+	 *
+	 * This keeps the Free Sites dashboard in sync without waiting for the next
+	 * policy fetch or daily sync.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function report_booking_usage( WP_REST_Request $request ) {
+		$validated = $this->validate_base_request( $request );
+		if ( is_wp_error( $validated ) ) {
+			return new WP_REST_Response(
+				array( 'success' => false, 'message' => $validated->get_error_message() ),
+				200
+			);
+		}
+
+		$site_uuid     = $validated['site_uuid'];
+		$site_url_hash = sanitize_text_field( (string) ( $validated['site_url_hash'] ?? '' ) );
+		$site          = $this->site_repo->get_by_uuid( $site_uuid );
+		$action        = sanitize_key( (string) $request->get_param( 'action' ) );
+
+		if ( 'booking_created' !== $action || ! $request->has_param( 'booking_count' ) ) {
+			return new WP_REST_Response(
+				array(
+					'success' => false,
+					'message' => __( 'A valid booking_created usage payload is required.', 'bangla-track-server' ),
+				),
+				200
+			);
+		}
+
+		if (
+			$site
+			&& ! empty( $site->site_url_hash )
+			&& ! empty( $site_url_hash )
+			&& ! hash_equals( (string) $site->site_url_hash, $site_url_hash )
+		) {
+			return new WP_REST_Response(
+				array(
+					'success' => false,
+					'message' => __( 'Site UUID does not match the registered site hash.', 'bangla-track-server' ),
+				),
+				200
+			);
+		}
+
+		if ( $site ) {
+			$this->site_repo->update_telemetry( $site_uuid, $validated );
+		} else {
+			$this->site_repo->upsert( $validated );
+		}
+
+		$payload  = $this->signer->build_policy_payload(
+			'booking_created',
+			$site_uuid,
+			true,
+			'usage_recorded'
+		);
+		$response = $this->signer->build_signed_response( $payload );
+
+		$response['success']       = true;
+		$response['booking_count'] = absint( $validated['booking_count'] );
 
 		return new WP_REST_Response( $response, 200 );
 	}
