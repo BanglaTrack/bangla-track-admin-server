@@ -145,7 +145,9 @@ class Installer {
             plugin_version VARCHAR(20) DEFAULT '',
             php_version VARCHAR(20) DEFAULT '',
             active_provider_count INT(11) NOT NULL DEFAULT 0,
+            active_providers TEXT NULL,
             booking_count INT(11) NOT NULL DEFAULT 0,
+            monthly_bookings TEXT NULL,
             status ENUM('active','inactive') NOT NULL DEFAULT 'active',
             activated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -284,8 +286,8 @@ class Installer {
         $wpdb->query( "UPDATE {$licenses} SET product_id = 0 WHERE product_id IS NULL" );
         $wpdb->query( "UPDATE {$licenses} SET product_code = '' WHERE product_code IS NULL" );
         $wpdb->query( "UPDATE {$licenses} SET monthly_booking_limit = CASE WHEN plan_code = 'pro' THEN -1 WHEN plan_code = 'starter' THEN 500 ELSE 100 END WHERE monthly_booking_limit IS NULL OR monthly_booking_limit = 0" );
-        $wpdb->query( "UPDATE {$licenses} SET allowed_active_providers = CASE WHEN plan_code = 'pro' THEN -1 ELSE 1 END WHERE allowed_active_providers IS NULL OR allowed_active_providers = 0" );
-        $wpdb->query( "UPDATE {$licenses} SET multi_provider = CASE WHEN plan_code = 'pro' THEN 1 ELSE 0 END WHERE multi_provider IS NULL" );
+        $wpdb->query( "UPDATE {$licenses} SET allowed_active_providers = CASE WHEN plan_code IN ('pro', 'starter') THEN -1 ELSE 1 END WHERE allowed_active_providers IS NULL OR allowed_active_providers = 0" );
+        $wpdb->query( "UPDATE {$licenses} SET multi_provider = CASE WHEN plan_code IN ('pro', 'starter') THEN 1 ELSE 0 END WHERE multi_provider IS NULL" );
         $wpdb->query( "UPDATE {$licenses} SET max_sites = CASE WHEN plan_code = 'pro' THEN 3 ELSE 1 END WHERE max_sites IS NULL OR max_sites = 0" );
         $wpdb->query( "UPDATE {$licenses} SET duration_days = 0 WHERE duration_days IS NULL" );
         $wpdb->query( "UPDATE {$licenses} SET is_lifetime = CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END WHERE is_lifetime IS NULL" );

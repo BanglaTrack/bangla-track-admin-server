@@ -13,6 +13,7 @@ namespace BanglaTrackServer\REST;
 
 use BanglaTrackServer\Database\ActivationRepository;
 use BanglaTrackServer\Database\SitePluginsRepository;
+use BanglaTrackServer\Database\LicenseRepository;
 use WP_REST_Controller;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -49,11 +50,19 @@ class SiteCheckinController extends WP_REST_Controller {
 	private $site_plugins_repo;
 
 	/**
+	 * License repository.
+	 *
+	 * @var LicenseRepository
+	 */
+	private $license_repo;
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
 		$this->activation_repo   = new ActivationRepository();
 		$this->site_plugins_repo = new SitePluginsRepository();
+		$this->license_repo      = new LicenseRepository();
 	}
 
 	/**
@@ -141,6 +150,13 @@ class SiteCheckinController extends WP_REST_Controller {
 			);
 		}
 
+		$active_providers = $request->get_param( 'active_providers' );
+		if ( is_array( $active_providers ) ) {
+			$active_providers = array_map( 'sanitize_text_field', $active_providers );
+		} else {
+			$active_providers = array();
+		}
+
 		$site_data = array(
 			'site_url'              => $site_url,
 			'site_name'             => sanitize_text_field( (string) $request->get_param( 'site_name' ) ),
@@ -149,12 +165,24 @@ class SiteCheckinController extends WP_REST_Controller {
 			'php_version'           => sanitize_text_field( (string) $request->get_param( 'php_version' ) ),
 			'wc_version'            => sanitize_text_field( (string) $request->get_param( 'wc_version' ) ),
 			'active_provider_count' => absint( $request->get_param( 'active_provider_count' ) ),
+			'active_providers'      => $active_providers,
 			'booking_count'         => absint( $request->get_param( 'booking_count' ) ),
 			'plugin_status'         => sanitize_key( (string) $request->get_param( 'plugin_status' ) ) ?: 'active',
 			'plan_code'             => sanitize_key( (string) $request->get_param( 'plan_code' ) ) ?: 'free',
 		);
 
-		$activation_id = $this->activation_repo->checkin_free_site( $site_data );
+		$license_key = strtoupper( sanitize_text_field( (string) $request->get_param( 'license_key' ) ) );
+		$license = null;
+		if ( ! empty( $license_key ) ) {
+			$license = $this->license_repo->get_by_key( $license_key );
+		}
+
+		if ( $license ) {
+			$site_data['plan_code'] = $license->plan_code;
+			$activation_id = $this->activation_repo->activate( (int) $license->id, $site_data );
+		} else {
+			$activation_id = $this->activation_repo->checkin_free_site( $site_data );
+		}
 
 		if ( ! $activation_id ) {
 			return new WP_REST_Response(

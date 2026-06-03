@@ -59,6 +59,23 @@ class ActivationRepository {
         $table = Installer::get_activations_table();
         $site_url = $this->normalize_url( $site_data['site_url'] ?? '' );
         $existing = $this->get_by_license_and_site( $license_id, $site_url );
+
+        $active_providers = '';
+        if ( isset( $site_data['active_providers'] ) ) {
+            if ( is_array( $site_data['active_providers'] ) ) {
+                $active_providers = implode( ', ', array_map( 'sanitize_text_field', $site_data['active_providers'] ) );
+            } else {
+                $active_providers = sanitize_text_field( $site_data['active_providers'] );
+            }
+        }
+
+        $bookings = array();
+        if ( $existing && ! empty( $existing->monthly_bookings ) ) {
+            $bookings = json_decode( $existing->monthly_bookings, true ) ?: array();
+        }
+        $bookings[ gmdate( 'Y-m' ) ] = absint( $site_data['booking_count'] ?? 0 );
+        $monthly_bookings_json = wp_json_encode( $bookings );
+
         if ( $existing ) {
             $wpdb->update( $table, array(
                 'status' => 'active', 'site_name' => sanitize_text_field( $site_data['site_name'] ?? '' ),
@@ -66,7 +83,9 @@ class ActivationRepository {
                 'php_version' => sanitize_text_field( $site_data['php_version'] ?? '' ), 'last_seen_at' => current_time( 'mysql' ),
                 'wc_version' => sanitize_text_field( $site_data['wc_version'] ?? '' ),
                 'active_provider_count' => absint( $site_data['active_provider_count'] ?? 0 ),
+                'active_providers' => $active_providers,
                 'booking_count' => absint( $site_data['booking_count'] ?? 0 ),
+                'monthly_bookings' => $monthly_bookings_json,
             ), array( 'id' => absint( $existing->id ) ) );
             return (int) $existing->id;
         }
@@ -77,7 +96,9 @@ class ActivationRepository {
             'plugin_version' => sanitize_text_field( $site_data['plugin_version'] ?? '' ), 'php_version' => sanitize_text_field( $site_data['php_version'] ?? '' ),
             'wc_version' => sanitize_text_field( $site_data['wc_version'] ?? '' ),
             'active_provider_count' => absint( $site_data['active_provider_count'] ?? 0 ),
+            'active_providers' => $active_providers,
             'booking_count' => absint( $site_data['booking_count'] ?? 0 ),
+            'monthly_bookings' => $monthly_bookings_json,
             'plan_code' => sanitize_key( $site_data['plan_code'] ?? 'free' ),
             'status' => 'active', 'last_seen_at' => current_time( 'mysql' ),
         ) );
@@ -101,6 +122,22 @@ class ActivationRepository {
 
         $existing = $this->get_free_by_site( $site_url );
 
+        $active_providers = '';
+        if ( isset( $site_data['active_providers'] ) ) {
+            if ( is_array( $site_data['active_providers'] ) ) {
+                $active_providers = implode( ', ', array_map( 'sanitize_text_field', $site_data['active_providers'] ) );
+            } else {
+                $active_providers = sanitize_text_field( $site_data['active_providers'] );
+            }
+        }
+
+        $bookings = array();
+        if ( $existing && ! empty( $existing->monthly_bookings ) ) {
+            $bookings = json_decode( $existing->monthly_bookings, true ) ?: array();
+        }
+        $bookings[ gmdate( 'Y-m' ) ] = absint( $site_data['booking_count'] ?? 0 );
+        $monthly_bookings_json = wp_json_encode( $bookings );
+
         $row = array(
             'site_name'             => sanitize_text_field( $site_data['site_name'] ?? '' ),
             'plan_code'             => sanitize_key( $site_data['plan_code'] ?? 'free' ),
@@ -109,7 +146,9 @@ class ActivationRepository {
             'plugin_version'        => sanitize_text_field( $site_data['plugin_version'] ?? '' ),
             'php_version'           => sanitize_text_field( $site_data['php_version'] ?? '' ),
             'active_provider_count' => absint( $site_data['active_provider_count'] ?? 0 ),
+            'active_providers'      => $active_providers,
             'booking_count'         => absint( $site_data['booking_count'] ?? 0 ),
+            'monthly_bookings'      => $monthly_bookings_json,
             'status'                => 'active',
             'last_seen_at'          => current_time( 'mysql' ),
         );

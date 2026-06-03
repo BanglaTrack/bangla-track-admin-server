@@ -80,8 +80,8 @@ class LicenseProductRules {
                 'duration_days'            => 30,
                 'is_lifetime'              => false,
                 'monthly_booking_limit'    => 500,
-                'allowed_active_providers' => 1,
-                'multi_provider'           => false,
+                'allowed_active_providers' => -1,
+                'multi_provider'           => true,
                 'max_sites'                => 1,
             ),
             'pro_monthly' => array(
@@ -98,8 +98,8 @@ class LicenseProductRules {
                 'duration_days'            => 365,
                 'is_lifetime'              => false,
                 'monthly_booking_limit'    => 500,
-                'allowed_active_providers' => 1,
-                'multi_provider'           => false,
+                'allowed_active_providers' => -1,
+                'multi_provider'           => true,
                 'max_sites'                => 1,
             ),
             'pro_yearly' => array(

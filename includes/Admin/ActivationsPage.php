@@ -199,8 +199,27 @@ class ActivationsPage {
                                         <?php endif; ?>
                                     </small>
                                 </td>
-                                <td><?php echo esc_html( $activation->active_provider_count ?? '—' ); ?></td>
-                                <td><?php echo esc_html( $activation->booking_count ?? '—' ); ?></td>
+                                <td>
+                                    <?php echo esc_html( $activation->active_provider_count ?? '0' ); ?>
+                                    <?php if ( ! empty( $activation->active_providers ) ) : ?>
+                                        <br><span style="color: #666; font-size: 11px;">(<?php echo esc_html( $activation->active_providers ); ?>)</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <strong><?php echo esc_html( $activation->booking_count ?? '0' ); ?></strong>
+                                    <?php
+                                    if ( ! empty( $activation->monthly_bookings ) ) {
+                                        $monthly = json_decode( $activation->monthly_bookings, true );
+                                        if ( is_array( $monthly ) && ! empty( $monthly ) ) {
+                                            echo '<ul style="margin: 4px 0 0 0; padding: 0; list-style: none; font-size: 11px; color: #666; line-height: 1.3;">';
+                                            foreach ( $monthly as $month => $count ) {
+                                                echo '<li>' . esc_html( $month ) . ': <strong>' . esc_html( $count ) . '</strong></li>';
+                                            }
+                                            echo '</ul>';
+                                        }
+                                    }
+                                    ?>
+                                </td>
                                 <td>
                                     <?php if ( 'active' === $activation->status ) : ?>
                                         <span class="bt-status bt-status-active"><?php esc_html_e( 'Active', 'bangla-track-server' ); ?></span>
