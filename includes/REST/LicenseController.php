@@ -184,6 +184,11 @@ class LicenseController extends WP_REST_Controller {
 
         $inserted = $this->usage_repo->insert_idempotent( (int) $ctx['license']->id, (int) $ctx['activation_id'], $month_key, $provider, $order_ref, $consignment_id );
 
+        if ( false !== $inserted ) {
+            $booking_count = $this->usage_repo->count_for_month( (int) $ctx['license']->id, (int) $ctx['activation_id'], $month_key );
+            $this->activation_repo->update_booking_count( (int) $ctx['activation_id'], $booking_count );
+        }
+
         return new WP_REST_Response( array(
             'success' => (bool) $inserted,
             'idempotent' => (bool) $inserted,

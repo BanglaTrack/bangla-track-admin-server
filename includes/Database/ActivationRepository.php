@@ -239,6 +239,81 @@ class ActivationRepository {
         return ( false !== $updated ) ? (int) $updated : 0;
     }
 
+    /**
+     * Find a free activation by site URL or site URL hash.
+     *
+     * @param string $site_url_param Raw site URL from payload.
+     * @param string $site_url_hash  Site URL hash from payload.
+     * @return object|null
+     */
+    public function find_free_activation( $site_url_param, $site_url_hash ) {
+        global $wpdb;
+        $table = Installer::get_activations_table();
+
+        // 1. Try exact match on site_url_hash
+        if ( ! empty( $site_url_hash ) ) {
+            $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE license_id = 0 AND site_url = %s", $site_url_hash ) );
+            if ( $row ) {
+                return $row;
+            }
+        }
+
+        // 2. Try match on site_url if provided
+        if ( ! empty( $site_url_param ) ) {
+            $normalized = $this->normalize_url( $site_url_param );
+            $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE license_id = 0 AND site_url = %s", $normalized ) );
+            if ( $row ) {
+                return $row;
+            }
+        }
+
+        // 3. Fallback: Search by hashing plain URLs from DB
+        $rows = $wpdb->get_results( "SELECT * FROM {$table} WHERE license_id = 0" );
+        foreach ( $rows as $row ) {
+            $normalized_db_url = $this->normalize_url( $row->site_url );
+            $db_hash = 'sha256:' . hash( 'sha256', $normalized_db_url );
+            if ( hash_equals( (string) $site_url_hash, $db_hash ) ) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Update booking count and monthly bookings JSON history.
+     *
+     * @param int $activation_id Activation ID.
+     * @param int $booking_count New booking count.
+     * @return bool
+     */
+    public function update_booking_count( $activation_id, $booking_count ) {
+        global $wpdb;
+        $table = Installer::get_activations_table();
+        $activation_id = absint( $activation_id );
+        if ( ! $activation_id ) {
+            return false;
+        }
+
+        $existing = $wpdb->get_row( $wpdb->prepare( "SELECT monthly_bookings FROM {$table} WHERE id = %d", $activation_id ) );
+        $bookings = array();
+        if ( $existing && ! empty( $existing->monthly_bookings ) ) {
+            $bookings = json_decode( $existing->monthly_bookings, true ) ?: array();
+        }
+        $bookings[ gmdate( 'Y-m' ) ] = absint( $booking_count );
+        $monthly_bookings_json = wp_json_encode( $bookings );
+
+        return $wpdb->update(
+            $table,
+            array(
+                'booking_count'    => absint( $booking_count ),
+                'monthly_bookings' => $monthly_bookings_json,
+                'last_seen_at'     => current_time( 'mysql' ),
+            ),
+            array( 'id' => $activation_id )
+        ) !== false;
+    }
+
     private function normalize_url( $url ) {
         $url = esc_url_raw( trim( (string) $url ) );
         $url = preg_replace( '#^https?://#', '', strtolower( $url ) );

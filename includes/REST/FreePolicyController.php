@@ -234,6 +234,16 @@ class FreePolicyController extends WP_REST_Controller {
 			);
 		}
 
+		// Update booking count in activations table immediately.
+		$activation = $this->activation_repo->find_free_activation(
+			$validated['site_url'] ?? '',
+			$validated['site_url_hash'] ?? ''
+		);
+
+		if ( $activation ) {
+			$this->activation_repo->update_booking_count( (int) $activation->id, $validated['booking_count'] );
+		}
+
 		$response = $this->build_policy_response(
 			'booking_created',
 			$validated['site_uuid'],
@@ -383,6 +393,7 @@ class FreePolicyController extends WP_REST_Controller {
 
 		return array(
 			'site_uuid'             => $site_uuid,
+			'site_url'              => esc_url_raw( (string) $request->get_param( 'site_url' ) ),
 			'site_url_hash'         => sanitize_text_field( (string) $request->get_param( 'site_url_hash' ) ),
 			'plugin_version'        => sanitize_text_field( (string) $request->get_param( 'plugin_version' ) ),
 			'wp_version'            => sanitize_text_field( (string) $request->get_param( 'wp_version' ) ),
