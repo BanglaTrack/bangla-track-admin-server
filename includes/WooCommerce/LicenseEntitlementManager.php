@@ -488,22 +488,14 @@ class LicenseEntitlementManager {
         echo '</section>';
     }
 
-    /**
-     * Render customer download section for plugin releases.
-     *
-     * @param int $user_id User ID.
-     * @return void
-     */
     private function render_downloads_section( $user_id ) {
         $can_download_free = $this->download_permission_service->can_download_free( $user_id );
-        $can_download_pro  = $this->download_permission_service->can_download_pro( $user_id );
         $free_release      = $this->release_repo->get_active_by_type( 'free' );
-        $pro_release       = $this->release_repo->get_active_by_type( 'pro' );
 
         echo '<section class="bt-plugin-downloads">';
         echo '<div class="bt-plugin-downloads__header">';
         echo '<h4 class="bt-plugin-downloads__title">' . esc_html__( 'Plugin Downloads', 'bangla-track-server' ) . '</h4>';
-        echo '<p class="bt-plugin-downloads__subtitle">' . esc_html__( 'Download the latest Bangla Track plugin packages from secure links.', 'bangla-track-server' ) . '</p>';
+        echo '<p class="bt-plugin-downloads__subtitle">' . esc_html__( 'Download the latest Bangla Track plugin package from secure links.', 'bangla-track-server' ) . '</p>';
         echo '</div>';
 
         if ( ! $can_download_free ) {
@@ -515,26 +507,12 @@ class LicenseEntitlementManager {
         echo '<div class="bt-plugin-downloads__grid">';
 
         echo '<article class="bt-plugin-download-card">';
-        echo '<h5 class="bt-plugin-download-card__title">' . esc_html__( 'Bangla Track Free Plugin', 'bangla-track-server' ) . '</h5>';
+        echo '<h5 class="bt-plugin-download-card__title">' . esc_html__( 'Bangla Track Plugin', 'bangla-track-server' ) . '</h5>';
         if ( $free_release ) {
             echo '<p class="bt-plugin-download-card__meta">' . esc_html__( 'Latest version:', 'bangla-track-server' ) . ' <strong>' . esc_html( (string) $free_release->version ) . '</strong></p>';
-            echo '<a class="button bt-button-primary" href="' . esc_url( wp_nonce_url( rest_url( 'bt-server/v1/download/free' ), 'wp_rest' ) ) . '">' . esc_html__( 'Download Free ZIP', 'bangla-track-server' ) . '</a>';
+            echo '<a class="button bt-button-primary" href="' . esc_url( wp_nonce_url( rest_url( 'bt-server/v1/download/free' ), 'wp_rest' ) ) . '">' . esc_html__( 'Download ZIP', 'bangla-track-server' ) . '</a>';
         } else {
-            echo '<p class="bt-plugin-downloads__message">' . esc_html__( 'Free plugin release is not available right now.', 'bangla-track-server' ) . '</p>';
-        }
-        echo '</article>';
-
-        echo '<article class="bt-plugin-download-card">';
-        echo '<h5 class="bt-plugin-download-card__title">' . esc_html__( 'Bangla Track Pro Plugin', 'bangla-track-server' ) . '</h5>';
-        if ( $can_download_pro ) {
-            if ( $pro_release ) {
-                echo '<p class="bt-plugin-download-card__meta">' . esc_html__( 'Latest version:', 'bangla-track-server' ) . ' <strong>' . esc_html( (string) $pro_release->version ) . '</strong></p>';
-                echo '<a class="button bt-button-primary" href="' . esc_url( wp_nonce_url( rest_url( 'bt-server/v1/download/pro' ), 'wp_rest' ) ) . '">' . esc_html__( 'Download Pro ZIP', 'bangla-track-server' ) . '</a>';
-            } else {
-                echo '<p class="bt-plugin-downloads__message">' . esc_html__( 'Pro plugin release is not available right now.', 'bangla-track-server' ) . '</p>';
-            }
-        } else {
-            echo '<p class="bt-plugin-downloads__message">' . esc_html__( 'Pro plugin is available with Starter or Pro licenses.', 'bangla-track-server' ) . '</p>';
+            echo '<p class="bt-plugin-downloads__message">' . esc_html__( 'Plugin release is not available right now.', 'bangla-track-server' ) . '</p>';
         }
         echo '</article>';
 

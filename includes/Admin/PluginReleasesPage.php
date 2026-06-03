@@ -193,90 +193,168 @@ class PluginReleasesPage {
             wp_die( esc_html__( 'You are not allowed to access this page.', 'bangla-track-server' ) );
         }
 
-        $free_release = $this->release_repo->get_active_by_type( 'free' );
-        $pro_release = $this->release_repo->get_active_by_type( 'pro' );
+        $active_release = $this->release_repo->get_active_by_type( 'free' );
+        $all_releases = $this->release_repo->get_by_type( 'free', 30 );
         $storage = $this->storage_service->ensure_storage_directory();
 
         $this->render_notices();
         ?>
         <div class="wrap bt-server-plugin-releases">
-            <h1><?php esc_html_e( 'Plugin Releases', 'bangla-track-server' ); ?></h1>
+            <h1 class="wp-heading-inline"><?php esc_html_e( 'Plugin Releases', 'bangla-track-server' ); ?></h1>
+            <hr class="wp-header-end">
 
-            <div class="notice notice-info"><p>
-                <?php esc_html_e( 'Upload Free and Pro ZIP files. Version and metadata are read automatically from inside ZIP file headers.', 'bangla-track-server' ); ?>
-            </p></div>
-
-            <div class="bt-server-card" style="margin-bottom:20px;">
-                <h2><?php esc_html_e( 'Release Storage', 'bangla-track-server' ); ?></h2>
-                <p><strong><?php esc_html_e( 'Location:', 'bangla-track-server' ); ?></strong> <?php echo esc_html( $storage['location'] ?? '' ); ?></p>
-                <p><strong><?php esc_html_e( 'Path:', 'bangla-track-server' ); ?></strong> <code><?php echo esc_html( (string) ( $storage['path'] ?? '' ) ); ?></code></p>
-                <p><strong><?php esc_html_e( 'Writable:', 'bangla-track-server' ); ?></strong> <?php echo ! empty( $storage['writable'] ) ? esc_html__( 'Yes', 'bangla-track-server' ) : esc_html__( 'No', 'bangla-track-server' ); ?></p>
-                <p><strong><?php esc_html_e( 'Protected:', 'bangla-track-server' ); ?></strong> <?php echo ! empty( $storage['protected'] ) ? esc_html__( 'Yes', 'bangla-track-server' ) : esc_html__( 'No', 'bangla-track-server' ); ?></p>
+            <!-- Storage Info & Description Header -->
+            <div class="bt-releases-header" style="display: flex; gap: 20px; align-items: stretch; margin: 20px 0;">
+                <div class="bt-server-card" style="flex: 1; display: flex; flex-direction: column; justify-content: center; border-left: 4px solid #3b82f6; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <p style="font-size: 14px; line-height: 1.5; color: #475569; margin: 0;">
+                        <?php esc_html_e( 'Manage the distribution packages for the Bangla Track plugin. Upload a new zip package to automatically parse version information, replace the currently active release, and populate the release history log.', 'bangla-track-server' ); ?>
+                    </p>
+                </div>
+                <div class="bt-server-card" style="flex: 1; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; color: #475569;">
+                    <div><strong><?php esc_html_e( 'Storage Location:', 'bangla-track-server' ); ?></strong> <span style="display:block; font-family: monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; margin-top: 3px;"><?php echo esc_html( $storage['location'] ?? '' ); ?></span></div>
+                    <div><strong><?php esc_html_e( 'Storage Path:', 'bangla-track-server' ); ?></strong> <span style="display:block; font-family: monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; margin-top: 3px; word-break: break-all;"><?php echo esc_html( (string) ( $storage['path'] ?? '' ) ); ?></span></div>
+                    <div><strong><?php esc_html_e( 'Folder Writable:', 'bangla-track-server' ); ?></strong> <span style="display:block; margin-top: 3px;"><?php echo ! empty( $storage['writable'] ) ? '<span style="color:#10b981; font-weight:600;">Yes</span>' : '<span style="color:#ef4444; font-weight:600;">No</span>'; ?></span></div>
+                    <div><strong><?php esc_html_e( 'Folder Protected:', 'bangla-track-server' ); ?></strong> <span style="display:block; margin-top: 3px;"><?php echo ! empty( $storage['protected'] ) ? '<span style="color:#10b981; font-weight:600;">Yes</span>' : '<span style="color:#ef4444; font-weight:600;">No</span>'; ?></span></div>
+                </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-                <?php $this->render_release_card( 'free', __( 'Bangla Track Free Plugin', 'bangla-track-server' ), $free_release ); ?>
-                <?php $this->render_release_card( 'pro', __( 'Bangla Track Pro Plugin', 'bangla-track-server' ), $pro_release ); ?>
+            <!-- Upload & Active Release Details -->
+            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:20px; margin-bottom: 30px;">
+                <!-- Upload form card -->
+                <div class="bt-server-card" style="background:#fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-radius: 8px;">
+                    <h2 style="font-size: 16px; font-weight: 600; color: #1e293b; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
+                        <?php esc_html_e( 'Upload New Release', 'bangla-track-server' ); ?>
+                    </h2>
+                    <form method="post" enctype="multipart/form-data">
+                        <input type="hidden" name="plugin_type" value="free" />
+                        <input type="hidden" name="bt_upload_plugin_release" value="1" />
+                        <?php wp_nonce_field( 'bt_upload_plugin_release_free' ); ?>
+
+                        <div style="margin-bottom: 20px;">
+                            <label for="bt_plugin_zip" style="display: block; font-weight: 600; margin-bottom: 8px; color: #475569;">
+                                <?php esc_html_e( 'Select Plugin ZIP File', 'bangla-track-server' ); ?>
+                            </label>
+                            <input type="file" id="bt_plugin_zip" name="plugin_zip" accept=".zip" required style="width: 100%; padding: 8px; border: 1px dashed #cbd5e1; border-radius: 6px; background: #f8fafc;" />
+                            <p class="description" style="margin-top: 6px;">
+                                <?php esc_html_e( 'Upload the plugin ZIP archive. Metadata (version, requires WP/PHP, description) will be parsed automatically.', 'bangla-track-server' ); ?>
+                            </p>
+                        </div>
+
+                        <button type="submit" class="button button-primary button-large" style="width: 100%; justify-content: center; display: flex; align-items: center; height: 40px; font-size: 14px;">
+                            <span class="dashicons dashicons-upload" style="margin-right: 5px; margin-top: 3px;"></span>
+                            <?php esc_html_e( 'Publish Release', 'bangla-track-server' ); ?>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Active Release details card -->
+                <div class="bt-server-card" style="background:#fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-radius: 8px;">
+                    <h2 style="font-size: 16px; font-weight: 600; color: #1e293b; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
+                        <?php esc_html_e( 'Active Release Details', 'bangla-track-server' ); ?>
+                    </h2>
+
+                    <?php if ( ! $active_release ) : ?>
+                        <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                            <span class="dashicons dashicons-warning" style="font-size: 48px; width: 48px; height: 48px; margin-bottom: 10px;"></span>
+                            <p style="font-size: 15px; margin: 0; font-weight: 500;"><?php esc_html_e( 'No active release published yet.', 'bangla-track-server' ); ?></p>
+                        </div>
+                    <?php else : ?>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 13px;">
+                            <div>
+                                <p style="margin: 0 0 8px;"><strong><?php esc_html_e( 'Plugin Name:', 'bangla-track-server' ); ?></strong><br><span style="color:#334155; font-size: 14px; font-weight: 500;"><?php echo esc_html( (string) $active_release->plugin_name ); ?></span></p>
+                                <p style="margin: 0 0 8px;"><strong><?php esc_html_e( 'Active Version:', 'bangla-track-server' ); ?></strong><br><span style="color:#0f172a; font-size: 16px; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-top: 2px;"><?php echo esc_html( (string) $active_release->version ); ?></span></p>
+                                <p style="margin: 0 0 8px;"><strong><?php esc_html_e( 'File Name:', 'bangla-track-server' ); ?></strong><br><code style="font-size: 11px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 2px;"><?php echo esc_html( (string) $active_release->file_name ); ?></code></p>
+                                <p style="margin: 0 0 8px;"><strong><?php esc_html_e( 'File Size:', 'bangla-track-server' ); ?></strong><br><span style="color:#334155;"><?php echo esc_html( size_format( (int) $active_release->file_size ) ); ?></span></p>
+                                <p style="margin: 0 0 8px;"><strong><?php esc_html_e( 'Uploaded On:', 'bangla-track-server' ); ?></strong><br><span style="color:#334155;"><?php echo esc_html( $this->format_datetime( (string) $active_release->created_at ) ); ?></span></p>
+                            </div>
+                            <div>
+                                <p style="margin: 0 0 8px;"><strong><?php esc_html_e( 'WordPress Required:', 'bangla-track-server' ); ?></strong><br><span style="color:#334155;"><?php echo esc_html( (string) ( $active_release->requires_wp ?: '-' ) ); ?></span></p>
+                                <p style="margin: 0 0 8px;"><strong><?php esc_html_e( 'PHP Required:', 'bangla-track-server' ); ?></strong><br><span style="color:#334155;"><?php echo esc_html( (string) ( $active_release->requires_php ?: '-' ) ); ?></span></p>
+                                <p style="margin: 0 0 8px;"><strong><?php esc_html_e( 'Text Domain:', 'bangla-track-server' ); ?></strong><br><code style="font-size: 11px;"><?php echo esc_html( (string) ( $active_release->text_domain ?: '-' ) ); ?></code></p>
+                                <p style="margin: 0 0 8px;"><strong><?php esc_html_e( 'Uploaded By:', 'bangla-track-server' ); ?></strong><br><span style="color:#334155;">
+                                    <?php 
+                                    $uploader = get_userdata( $active_release->uploaded_by );
+                                    echo esc_html( $uploader ? $uploader->display_name : '-' );
+                                    ?>
+                                </span></p>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 15px;">
+                            <strong><?php esc_html_e( 'Changelog:', 'bangla-track-server' ); ?></strong>
+                            <pre style="white-space:pre-wrap; max-height:120px; overflow:auto; background:#f8fafc; padding:10px; border:1px solid #e2e8f0; border-radius: 6px; font-size:12px; margin-top: 6px; color:#475569;"><?php echo esc_html( (string) ( $active_release->changelog ?: '-' ) ); ?></pre>
+                        </div>
+
+                        <div style="margin-top: 15px; display: flex; gap: 10px;">
+                            <a class="button button-secondary" style="height: 34px; line-height: 32px;" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=bt_admin_download_release&release_id=' . absint( $active_release->id ) ), 'bt_admin_download_release_' . absint( $active_release->id ) ) ); ?>">
+                                <span class="dashicons dashicons-download" style="margin-top: 5px;"></span>
+                                <?php esc_html_e( 'Download ZIP', 'bangla-track-server' ); ?>
+                            </a>
+                        </div>
+                    <?php endif; ?>
+                </div>
             </div>
-        </div>
-        <?php
-    }
 
-    /**
-     * Render release card.
-     *
-     * @param string      $plugin_type Plugin type.
-     * @param string      $title Card title.
-     * @param object|null $release Active release.
-     * @return void
-     */
-    private function render_release_card( $plugin_type, $title, $release ) {
-        ?>
-        <div class="bt-server-card">
-            <h2><?php echo esc_html( $title ); ?></h2>
+            <!-- Release History Log -->
+            <div class="bt-server-card" style="background:#fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-radius: 8px;">
+                <h2 style="font-size: 16px; font-weight: 600; color: #1e293b; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
+                    <?php esc_html_e( 'Release History Log', 'bangla-track-server' ); ?>
+                </h2>
 
-            <form method="post" enctype="multipart/form-data">
-                <input type="hidden" name="plugin_type" value="<?php echo esc_attr( $plugin_type ); ?>" />
-                <input type="hidden" name="bt_upload_plugin_release" value="1" />
-                <?php wp_nonce_field( 'bt_upload_plugin_release_' . $plugin_type ); ?>
-
-                <p>
-                    <label for="bt_plugin_zip_<?php echo esc_attr( $plugin_type ); ?>"><strong><?php esc_html_e( 'Upload ZIP', 'bangla-track-server' ); ?></strong></label><br />
-                    <input type="file" id="bt_plugin_zip_<?php echo esc_attr( $plugin_type ); ?>" name="plugin_zip" accept=".zip" required />
-                </p>
-
-                <p>
-                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Upload ZIP', 'bangla-track-server' ); ?></button>
-                </p>
-            </form>
-
-            <hr />
-
-            <h3><?php esc_html_e( 'Current Active Release', 'bangla-track-server' ); ?></h3>
-
-            <?php if ( ! $release ) : ?>
-                <p><?php esc_html_e( 'No active release uploaded yet.', 'bangla-track-server' ); ?></p>
-            <?php else : ?>
-                <p><strong><?php esc_html_e( 'Plugin type:', 'bangla-track-server' ); ?></strong> <?php echo esc_html( strtoupper( (string) $release->plugin_type ) ); ?></p>
-                <p><strong><?php esc_html_e( 'Plugin name:', 'bangla-track-server' ); ?></strong> <?php echo esc_html( (string) $release->plugin_name ); ?></p>
-                <p><strong><?php esc_html_e( 'Version:', 'bangla-track-server' ); ?></strong> <?php echo esc_html( (string) $release->version ); ?></p>
-                <p><strong><?php esc_html_e( 'File name:', 'bangla-track-server' ); ?></strong> <code><?php echo esc_html( (string) $release->file_name ); ?></code></p>
-                <p><strong><?php esc_html_e( 'File size:', 'bangla-track-server' ); ?></strong> <?php echo esc_html( size_format( (int) $release->file_size ) ); ?></p>
-                <p><strong><?php esc_html_e( 'Uploaded date:', 'bangla-track-server' ); ?></strong> <?php echo esc_html( $this->format_datetime( (string) $release->created_at ) ); ?></p>
-                <p><strong><?php esc_html_e( 'Minimum WordPress version:', 'bangla-track-server' ); ?></strong> <?php echo esc_html( (string) ( $release->requires_wp ?: '-' ) ); ?></p>
-                <p><strong><?php esc_html_e( 'Minimum PHP version:', 'bangla-track-server' ); ?></strong> <?php echo esc_html( (string) ( $release->requires_php ?: '-' ) ); ?></p>
-                <p><strong><?php esc_html_e( 'Description:', 'bangla-track-server' ); ?></strong> <?php echo esc_html( (string) ( $release->description ?: '-' ) ); ?></p>
-                <p><strong><?php esc_html_e( 'Storage path:', 'bangla-track-server' ); ?></strong> <code><?php echo esc_html( (string) $release->file_path ); ?></code></p>
-
-                <p><strong><?php esc_html_e( 'Changelog:', 'bangla-track-server' ); ?></strong></p>
-                <pre style="white-space:pre-wrap;max-height:220px;overflow:auto;background:#f6f7f7;padding:10px;border:1px solid #ddd;"><?php echo esc_html( (string) ( $release->changelog ?: '-' ) ); ?></pre>
-
-                <p>
-                    <a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=bt_admin_download_release&release_id=' . absint( $release->id ) ), 'bt_admin_download_release_' . absint( $release->id ) ) ); ?>">
-                        <?php esc_html_e( 'Download/Test ZIP (Admin)', 'bangla-track-server' ); ?>
-                    </a>
-                </p>
-            <?php endif; ?>
+                <?php if ( empty( $all_releases ) ) : ?>
+                    <p style="color: #64748b; font-style: italic; text-align: center; padding: 20px;"><?php esc_html_e( 'No releases uploaded yet.', 'bangla-track-server' ); ?></p>
+                <?php else : ?>
+                    <table class="wp-list-table widefat fixed striped table-view-list" style="border: 0; box-shadow: none;">
+                        <thead>
+                            <tr>
+                                <th style="font-weight: 600; color: #334155; width: 10%;"><?php esc_html_e( 'Version', 'bangla-track-server' ); ?></th>
+                                <th style="font-weight: 600; color: #334155; width: 25%;"><?php esc_html_e( 'File Name', 'bangla-track-server' ); ?></th>
+                                <th style="font-weight: 600; color: #334155; width: 12%;"><?php esc_html_e( 'File Size', 'bangla-track-server' ); ?></th>
+                                <th style="font-weight: 600; color: #334155; width: 18%;"><?php esc_html_e( 'Requirements', 'bangla-track-server' ); ?></th>
+                                <th style="font-weight: 600; color: #334155; width: 15%;"><?php esc_html_e( 'Uploaded Date', 'bangla-track-server' ); ?></th>
+                                <th style="font-weight: 600; color: #334155; width: 10%;"><?php esc_html_e( 'Uploader', 'bangla-track-server' ); ?></th>
+                                <th style="font-weight: 600; color: #334155; width: 10%; text-align: center;"><?php esc_html_e( 'Status', 'bangla-track-server' ); ?></th>
+                                <th style="font-weight: 600; color: #334155; width: 10%; text-align: right;"><?php esc_html_e( 'Actions', 'bangla-track-server' ); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $all_releases as $rel ) : ?>
+                                <tr>
+                                    <td>
+                                        <span style="font-weight: 700; color: #0f172a; font-size: 13px;"><?php echo esc_html( (string) $rel->version ); ?></span>
+                                    </td>
+                                    <td>
+                                        <code style="font-size: 11px; background:#f1f5f9; padding: 2px 4px; border-radius: 4px;"><?php echo esc_html( (string) $rel->file_name ); ?></code>
+                                    </td>
+                                    <td><?php echo esc_html( size_format( (int) $rel->file_size ) ); ?></td>
+                                    <td style="font-size: 12px; color: #64748b;">
+                                        WP: <code><?php echo esc_html( $rel->requires_wp ?: '-' ); ?></code> | PHP: <code><?php echo esc_html( $rel->requires_php ?: '-' ); ?></code>
+                                    </td>
+                                    <td><?php echo esc_html( $this->format_datetime( (string) $rel->created_at ) ); ?></td>
+                                    <td>
+                                        <?php 
+                                        $rel_uploader = get_userdata( $rel->uploaded_by );
+                                        echo esc_html( $rel_uploader ? $rel_uploader->display_name : '-' );
+                                        ?>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <?php if ( ! empty( $rel->is_active ) ) : ?>
+                                            <span style="background: #d1fae5; color: #065f46; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; text-transform: uppercase;"><?php esc_html_e( 'Active', 'bangla-track-server' ); ?></span>
+                                        <?php else : ?>
+                                            <span style="background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; text-transform: uppercase;"><?php esc_html_e( 'Inactive', 'bangla-track-server' ); ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <a class="button button-small" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=bt_admin_download_release&release_id=' . absint( $rel->id ) ), 'bt_admin_download_release_' . absint( $rel->id ) ) ); ?>" title="<?php esc_attr_e( 'Download release file', 'bangla-track-server' ); ?>">
+                                            <span class="dashicons dashicons-download" style="font-size: 15px; width: 15px; height: 15px; margin-top: 2px;"></span>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
         </div>
         <?php
     }
