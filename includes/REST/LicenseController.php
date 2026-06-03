@@ -7,6 +7,7 @@ use BanglaTrackServer\Database\ProviderLockRepository;
 use BanglaTrackServer\Database\SitePluginsRepository;
 use BanglaTrackServer\Database\UsageRepository;
 use BanglaTrackServer\Core\PolicySigner;
+use BanglaTrackServer\REST\SiteCheckinController;
 use WP_REST_Controller;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -38,7 +39,7 @@ class LicenseController extends WP_REST_Controller {
     public function register_routes() {
         $public_args = array(
             'methods'             => WP_REST_Server::CREATABLE,
-            'permission_callback' => '__return_true',
+            'permission_callback' => array( SiteCheckinController::class, 'check_api_key' ),
         );
 
         // Shared schema for license_key + site_url parameters.

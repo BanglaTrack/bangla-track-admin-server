@@ -63,8 +63,16 @@ class Dashboard {
                 <div class="bt-server-stat-card stat-info">
                     <div class="stat-icon dashicons dashicons-admin-site-alt3"></div>
                     <div class="stat-content">
-                        <span class="stat-number"><?php echo esc_html( $activation_stats['active'] ); ?></span>
-                        <span class="stat-label"><?php esc_html_e( 'Active Sites', 'bangla-track-server' ); ?></span>
+                        <span class="stat-number"><?php echo esc_html( $activation_stats['paid'] ?? 0 ); ?></span>
+                        <span class="stat-label"><?php esc_html_e( 'Active Paid Sites', 'bangla-track-server' ); ?></span>
+                    </div>
+                </div>
+
+                <div class="bt-server-stat-card stat-info">
+                    <div class="stat-icon dashicons dashicons-groups"></div>
+                    <div class="stat-content">
+                        <span class="stat-number"><?php echo esc_html( $activation_stats['free'] ?? 0 ); ?></span>
+                        <span class="stat-label"><?php esc_html_e( 'Active Free Sites', 'bangla-track-server' ); ?></span>
                     </div>
                 </div>
             </div>
@@ -79,7 +87,7 @@ class Dashboard {
                             <thead>
                                 <tr>
                                     <th><?php esc_html_e( 'Site', 'bangla-track-server' ); ?></th>
-                                    <th><?php esc_html_e( 'License', 'bangla-track-server' ); ?></th>
+                                    <th><?php esc_html_e( 'Plan', 'bangla-track-server' ); ?></th>
                                     <th><?php esc_html_e( 'Activated', 'bangla-track-server' ); ?></th>
                                 </tr>
                             </thead>
@@ -90,7 +98,13 @@ class Dashboard {
                                             <strong><?php echo esc_html( $activation->site_name ?: $activation->site_url ); ?></strong>
                                             <br><small><?php echo esc_html( $activation->site_url ); ?></small>
                                         </td>
-                                        <td><code><?php echo esc_html( $activation->license_key ); ?></code></td>
+                                        <td>
+                                            <?php if ( 0 === (int) $activation->license_id ) : ?>
+                                                <span class="bt-status bt-status-expired">Free</span>
+                                            <?php else : ?>
+                                                <span class="bt-status bt-status-active"><?php echo esc_html( ucfirst( $activation->plan_code ?? 'paid' ) ); ?></span>
+                                            <?php endif; ?>
+                                        </td>
                                         <td><?php echo esc_html( human_time_diff( strtotime( $activation->activated_at ), current_time( 'timestamp' ) ) ); ?> ago</td>
                                     </tr>
                                 <?php endforeach; ?>

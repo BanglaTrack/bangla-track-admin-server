@@ -2,6 +2,8 @@
 /**
  * Activations Page for Bangla Track Admin Server.
  *
+ * Unified view showing ALL site activations — both free and paid plans.
+ *
  * @package BanglaTrackServer\Admin
  */
 
@@ -69,12 +71,32 @@ class ActivationsPage {
      * @return void
      */
     public function render() {
-        $is_active = isset( $_GET['status'] ) && 'inactive' === $_GET['status'] ? 0 : null;
-        $activations = $this->repo->get_all( array( 'limit' => 50, 'is_active' => $is_active ) );
+        $status_filter = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : '';
+        $plan_filter   = isset( $_GET['plan'] ) ? sanitize_key( $_GET['plan'] ) : '';
+
+        $query_args = array( 'limit' => 50 );
+
+        if ( 'inactive' === $status_filter ) {
+            $query_args['is_active'] = 0;
+        } elseif ( ! empty( $status_filter ) ) {
+            // Default to showing all statuses.
+        }
+
+        if ( in_array( $plan_filter, array( 'free', 'paid' ), true ) ) {
+            $query_args['plan_filter'] = $plan_filter;
+        }
+
+        $activations = $this->repo->get_all( $query_args );
 
         // Batch-load plugin counts for all visible activations.
         $activation_ids  = array_map( function( $a ) { return (int) $a->id; }, $activations );
         $plugin_counts   = $this->plugins_repo->get_counts_for_sites( 'activation', $activation_ids );
+
+        // Stats for filter tabs.
+        $total_count    = $this->repo->get_count();
+        $free_count     = $this->repo->get_count( null, 'free' );
+        $paid_count     = $this->repo->get_count( null, 'paid' );
+        $inactive_count = $this->repo->get_count( 0 );
         ?>
         <div class="wrap bt-server-activations">
             <h1><?php esc_html_e( 'Site Activations', 'bangla-track-server' ); ?></h1>
@@ -85,16 +107,30 @@ class ActivationsPage {
             <ul class="subsubsub">
                 <li>
                     <a href="<?php echo esc_url( admin_url( 'admin.php?page=bt-server-activations' ) ); ?>" 
-                       class="<?php echo ! isset( $_GET['status'] ) ? 'current' : ''; ?>">
+                       class="<?php echo empty( $status_filter ) && empty( $plan_filter ) ? 'current' : ''; ?>">
                         <?php esc_html_e( 'All', 'bangla-track-server' ); ?>
-                        <span class="count">(<?php echo esc_html( $this->repo->get_count() ); ?>)</span>
+                        <span class="count">(<?php echo esc_html( $total_count ); ?>)</span>
+                    </a> |
+                </li>
+                <li>
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=bt-server-activations&plan=free' ) ); ?>"
+                       class="<?php echo 'free' === $plan_filter ? 'current' : ''; ?>">
+                        <?php esc_html_e( 'Free', 'bangla-track-server' ); ?>
+                        <span class="count">(<?php echo esc_html( $free_count ); ?>)</span>
+                    </a> |
+                </li>
+                <li>
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=bt-server-activations&plan=paid' ) ); ?>"
+                       class="<?php echo 'paid' === $plan_filter ? 'current' : ''; ?>">
+                        <?php esc_html_e( 'Paid', 'bangla-track-server' ); ?>
+                        <span class="count">(<?php echo esc_html( $paid_count ); ?>)</span>
                     </a> |
                 </li>
                 <li>
                     <a href="<?php echo esc_url( admin_url( 'admin.php?page=bt-server-activations&status=inactive' ) ); ?>"
-                       class="<?php echo isset( $_GET['status'] ) && 'inactive' === $_GET['status'] ? 'current' : ''; ?>">
+                       class="<?php echo 'inactive' === $status_filter ? 'current' : ''; ?>">
                         <?php esc_html_e( 'Inactive', 'bangla-track-server' ); ?>
-                        <span class="count">(<?php echo esc_html( $this->repo->get_count( 0 ) ); ?>)</span>
+                        <span class="count">(<?php echo esc_html( $inactive_count ); ?>)</span>
                     </a>
                 </li>
             </ul>
@@ -103,13 +139,13 @@ class ActivationsPage {
                 <thead>
                     <tr>
                         <th><?php esc_html_e( 'Site', 'bangla-track-server' ); ?></th>
+                        <th><?php esc_html_e( 'Plan', 'bangla-track-server' ); ?></th>
                         <th><?php esc_html_e( 'License', 'bangla-track-server' ); ?></th>
-                        <th><?php esc_html_e( 'Customer', 'bangla-track-server' ); ?></th>
                         <th><?php esc_html_e( 'Environment', 'bangla-track-server' ); ?></th>
-                        <th><?php esc_html_e( 'Last Check', 'bangla-track-server' ); ?></th>
+                        <th><?php esc_html_e( 'Providers', 'bangla-track-server' ); ?></th>
+                        <th><?php esc_html_e( 'Bookings', 'bangla-track-server' ); ?></th>
                         <th><?php esc_html_e( 'Status', 'bangla-track-server' ); ?></th>
-                        <th><?php esc_html_e( 'Usage (Month)', 'bangla-track-server' ); ?></th>
-                        <th><?php esc_html_e( 'Locked Provider', 'bangla-track-server' ); ?></th>
+                        <th><?php esc_html_e( 'Last Seen', 'bangla-track-server' ); ?></th>
                         <th><?php esc_html_e( 'Installed Plugins', 'bangla-track-server' ); ?></th>
                         <th><?php esc_html_e( 'Actions', 'bangla-track-server' ); ?></th>
                     </tr>
@@ -120,7 +156,10 @@ class ActivationsPage {
                             <td colspan="10"><?php esc_html_e( 'No activations found.', 'bangla-track-server' ); ?></td>
                         </tr>
                     <?php else : ?>
-                        <?php foreach ( $activations as $activation ) : ?>
+                        <?php foreach ( $activations as $activation ) :
+                            $is_free = ( 0 === (int) $activation->license_id );
+                            $plan_label = $is_free ? 'Free' : ucfirst( $activation->license_plan_code ?? $activation->plan_code ?? 'paid' );
+                        ?>
                             <tr>
                                 <td>
                                     <strong><?php echo esc_html( $activation->site_name ?: $activation->site_url ); ?></strong>
@@ -130,19 +169,44 @@ class ActivationsPage {
                                         <span class="dashicons dashicons-external"></span>
                                     </a>
                                 </td>
-                                <td><code><?php echo esc_html( $activation->license_key ); ?></code></td>
                                 <td>
-                                    <?php echo esc_html( $activation->customer_name ?: '—' ); ?>
-                                    <?php if ( $activation->customer_email ) : ?>
-                                        <br><small><?php echo esc_html( $activation->customer_email ); ?></small>
+                                    <?php if ( $is_free ) : ?>
+                                        <span class="bt-status bt-status-expired"><?php echo esc_html( $plan_label ); ?></span>
+                                    <?php else : ?>
+                                        <span class="bt-status bt-status-active"><?php echo esc_html( $plan_label ); ?></span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ( $is_free ) : ?>
+                                        <span style="color: #999;">—</span>
+                                    <?php else : ?>
+                                        <code><?php echo esc_html( $activation->license_key ?? '—' ); ?></code>
+                                        <?php if ( ! empty( $activation->customer_name ) ) : ?>
+                                            <br><small><?php echo esc_html( $activation->customer_name ); ?></small>
+                                        <?php endif; ?>
+                                        <?php if ( ! empty( $activation->customer_email ) ) : ?>
+                                            <br><small><?php echo esc_html( $activation->customer_email ); ?></small>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <small>
                                         WP <?php echo esc_html( $activation->wp_version ?: '—' ); ?><br>
                                         PHP <?php echo esc_html( $activation->php_version ?: '—' ); ?><br>
-                                        Pro <?php echo esc_html( $activation->plugin_version ?: '—' ); ?>
+                                        Plugin <?php echo esc_html( $activation->plugin_version ?: '—' ); ?>
+                                        <?php if ( ! empty( $activation->wc_version ) ) : ?>
+                                            <br>WC <?php echo esc_html( $activation->wc_version ); ?>
+                                        <?php endif; ?>
                                     </small>
+                                </td>
+                                <td><?php echo esc_html( $activation->active_provider_count ?? '—' ); ?></td>
+                                <td><?php echo esc_html( $activation->booking_count ?? '—' ); ?></td>
+                                <td>
+                                    <?php if ( 'active' === $activation->status ) : ?>
+                                        <span class="bt-status bt-status-active"><?php esc_html_e( 'Active', 'bangla-track-server' ); ?></span>
+                                    <?php else : ?>
+                                        <span class="bt-status bt-status-revoked"><?php esc_html_e( 'Inactive', 'bangla-track-server' ); ?></span>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php 
@@ -153,15 +217,6 @@ class ActivationsPage {
                                     }
                                     ?>
                                 </td>
-                            <td>
-                                    <?php if ( 'active' === $activation->status ) : ?>
-                                        <span class="bt-status bt-status-active"><?php esc_html_e( 'Active', 'bangla-track-server' ); ?></span>
-                                    <?php else : ?>
-                                        <span class="bt-status bt-status-revoked"><?php esc_html_e( 'Inactive', 'bangla-track-server' ); ?></span>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?php echo esc_html( $this->usage_repo->count_for_activation( $activation->id, gmdate( 'Y-m' ) ) ); ?></td>
-                                <td><?php echo esc_html( $this->lock_repo->get_locked_provider( $activation->license_id, $activation->id ) ?: '-' ); ?></td>
                                 <td>
                                     <?php
                                     $count = isset( $plugin_counts[ (int) $activation->id ] ) ? (int) $plugin_counts[ (int) $activation->id ] : 0;
@@ -189,9 +244,13 @@ class ActivationsPage {
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <a class="button button-small" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=bt-server-activations&action=reset_lock&license_id=' . $activation->license_id . '&activation_id=' . $activation->id ), 'bt_reset_provider_lock' ) ); ?>">
-                                        <?php esc_html_e( 'Reset Lock', 'bangla-track-server' ); ?>
-                                    </a>
+                                    <?php if ( ! $is_free && $activation->license_id > 0 ) : ?>
+                                        <a class="button button-small" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=bt-server-activations&action=reset_lock&license_id=' . $activation->license_id . '&activation_id=' . $activation->id ), 'bt_reset_provider_lock' ) ); ?>">
+                                            <?php esc_html_e( 'Reset Lock', 'bangla-track-server' ); ?>
+                                        </a>
+                                    <?php else : ?>
+                                        —
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

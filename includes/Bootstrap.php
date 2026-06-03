@@ -10,11 +10,11 @@ namespace BanglaTrackServer;
 use BanglaTrackServer\Admin\Dashboard;
 use BanglaTrackServer\Admin\LicensesPage;
 use BanglaTrackServer\Admin\ActivationsPage;
-use BanglaTrackServer\Admin\FreeSitesPage;
 use BanglaTrackServer\Admin\PluginReleasesPage;
 use BanglaTrackServer\Database\Installer;
 use BanglaTrackServer\REST\LicenseController;
 use BanglaTrackServer\REST\FreePolicyController;
+use BanglaTrackServer\REST\SiteCheckinController;
 use BanglaTrackServer\REST\ReleaseDownloadController;
 use BanglaTrackServer\WooCommerce\ProductLicenseFields;
 use BanglaTrackServer\WooCommerce\LicenseEntitlementManager;
@@ -134,15 +134,6 @@ class Bootstrap {
 
         add_submenu_page(
             'bt-server-dashboard',
-            __( 'Free Sites', 'bangla-track-server' ),
-            __( 'Free Sites', 'bangla-track-server' ),
-            'manage_options',
-            'bt-server-free-sites',
-            array( new FreeSitesPage(), 'render' )
-        );
-
-        add_submenu_page(
-            'bt-server-dashboard',
             __( 'Plugin Releases', 'bangla-track-server' ),
             __( 'Plugin Releases', 'bangla-track-server' ),
             'manage_options',
@@ -157,11 +148,14 @@ class Bootstrap {
      * @return void
      */
     public function init_rest_api() {
-        $controller = new LicenseController();
-        $controller->register_routes();
+        $license_controller = new LicenseController();
+        $license_controller->register_routes();
 
         $free_policy_controller = new FreePolicyController();
         $free_policy_controller->register_routes();
+
+        $checkin_controller = new SiteCheckinController();
+        $checkin_controller->register_routes();
 
         $release_controller = new ReleaseDownloadController();
         $release_controller->register_routes();

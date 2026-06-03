@@ -3,17 +3,16 @@
  * Free-plan policy REST controller.
  *
  * Handles the bt-server/v1/free endpoints that the free plugin's
- * BT_Remote_Policy_Client communicates with. All responses are signed
- * with the server's RSA private key.
+ * BT_Remote_Policy_Client communicates with. Uses API key header
+ * authentication instead of RSA signing.
  *
  * @package BanglaTrackServer\REST
  */
 
 namespace BanglaTrackServer\REST;
 
-use BanglaTrackServer\Database\FreeSiteRepository;
+use BanglaTrackServer\Database\ActivationRepository;
 use BanglaTrackServer\Database\SitePluginsRepository;
-use BanglaTrackServer\Services\FreePolicySigner;
 use WP_REST_Controller;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -36,18 +35,17 @@ class FreePolicyController extends WP_REST_Controller {
 	protected $namespace = 'bt-server/v1/free';
 
 	/**
-	 * Free site repository.
-	 *
-	 * @var FreeSiteRepository
+	 * Free-plan limits.
 	 */
-	private $site_repo;
+	const FREE_MAX_BOOKINGS         = 100;
+	const FREE_MAX_ACTIVE_PROVIDERS = 1;
 
 	/**
-	 * Policy signer service.
+	 * Activation repository.
 	 *
-	 * @var FreePolicySigner
+	 * @var ActivationRepository
 	 */
-	private $signer;
+	private $activation_repo;
 
 	/**
 	 * Site plugins repository.
@@ -60,8 +58,7 @@ class FreePolicyController extends WP_REST_Controller {
 	 * Constructor.
 	 */
 	public function __construct() {
-		$this->site_repo         = new FreeSiteRepository();
-		$this->signer            = new FreePolicySigner();
+		$this->activation_repo   = new ActivationRepository();
 		$this->site_plugins_repo = new SitePluginsRepository();
 	}
 
@@ -73,7 +70,7 @@ class FreePolicyController extends WP_REST_Controller {
 	public function register_routes() {
 		$public = array(
 			'methods'             => WP_REST_Server::CREATABLE,
-			'permission_callback' => '__return_true',
+			'permission_callback' => array( SiteCheckinController::class, 'check_api_key' ),
 		);
 
 		register_rest_route(
@@ -110,9 +107,6 @@ class FreePolicyController extends WP_REST_Controller {
 	/**
 	 * Handle site registration.
 	 *
-	 * Called when the free plugin is activated. Registers the site UUID and
-	 * returns an initial signed policy.
-	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response
 	 */
@@ -125,31 +119,39 @@ class FreePolicyController extends WP_REST_Controller {
 			);
 		}
 
-		$site_uuid = $validated['site_uuid'];
+		$site_url = sanitize_text_field( $validated['site_url_hash'] ?? '' );
 
-		$site_id = $this->site_repo->upsert( $validated );
+		// Upsert into bt_activations as a free site.
+		$site_data = array(
+			'site_url'              => $site_url ?: 'hash-' . $validated['site_uuid'],
+			'site_name'             => '',
+			'plan_code'             => 'free',
+			'wp_version'            => $validated['wp_version'],
+			'plugin_version'        => $validated['plugin_version'],
+			'php_version'           => $validated['php_version'],
+			'active_provider_count' => $validated['active_provider_count'],
+			'booking_count'         => $validated['booking_count'],
+		);
+
+		$activation_id = $this->activation_repo->checkin_free_site( $site_data );
 
 		// Save installed plugins telemetry.
-		if ( $site_id && ! empty( $validated['installed_plugins'] ) ) {
-			$this->site_plugins_repo->save_plugins( 'free_site', (int) $site_id, $validated['installed_plugins'] );
+		if ( $activation_id && ! empty( $validated['installed_plugins'] ) ) {
+			$this->site_plugins_repo->save_plugins( 'activation', (int) $activation_id, $validated['installed_plugins'] );
 		}
 
-		$payload  = $this->signer->build_policy_payload(
+		$response = $this->build_policy_response(
 			'site_register',
-			$site_uuid,
+			$validated['site_uuid'],
 			true,
 			'registered'
 		);
-		$response = $this->signer->build_signed_response( $payload );
 
 		return new WP_REST_Response( $response, 200 );
 	}
 
 	/**
 	 * Handle policy fetch.
-	 *
-	 * Returns the current signed free-plan policy for the requesting site.
-	 * Called by the daily cron sync and the manual "Refresh Policy" button.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response
@@ -163,42 +165,18 @@ class FreePolicyController extends WP_REST_Controller {
 			);
 		}
 
-		$site_uuid = $validated['site_uuid'];
-
-		// Update telemetry and last_seen.
-		$site = $this->site_repo->get_by_uuid( $site_uuid );
-		if ( $site ) {
-			$this->site_repo->update_telemetry( $site_uuid, $validated );
-
-			// Save installed plugins telemetry.
-			if ( ! empty( $validated['installed_plugins'] ) ) {
-				$this->site_plugins_repo->save_plugins( 'free_site', (int) $site->id, $validated['installed_plugins'] );
-			}
-		} else {
-			// Auto-register if not found (handles edge case of DB reset).
-			$site_id = $this->site_repo->upsert( $validated );
-
-			if ( $site_id && ! empty( $validated['installed_plugins'] ) ) {
-				$this->site_plugins_repo->save_plugins( 'free_site', (int) $site_id, $validated['installed_plugins'] );
-			}
-		}
-
-		$payload  = $this->signer->build_policy_payload(
+		$response = $this->build_policy_response(
 			'policy_fetch',
-			$site_uuid,
+			$validated['site_uuid'],
 			true,
 			'within_free_limit'
 		);
-		$response = $this->signer->build_signed_response( $payload );
 
 		return new WP_REST_Response( $response, 200 );
 	}
 
 	/**
 	 * Validate a specific gated action.
-	 *
-	 * This is the primary enforcement endpoint. The free plugin calls this
-	 * for every controlled action (create_booking, activate_provider, etc.).
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response
@@ -212,9 +190,7 @@ class FreePolicyController extends WP_REST_Controller {
 			);
 		}
 
-		$site_uuid = $validated['site_uuid'];
-		$action    = sanitize_key( (string) $request->get_param( 'action' ) );
-
+		$action = sanitize_key( (string) $request->get_param( 'action' ) );
 		if ( empty( $action ) ) {
 			return new WP_REST_Response(
 				array( 'success' => false, 'message' => __( 'Action parameter is required.', 'bangla-track-server' ) ),
@@ -222,34 +198,21 @@ class FreePolicyController extends WP_REST_Controller {
 			);
 		}
 
-		// Update telemetry.
-		$site = $this->site_repo->get_by_uuid( $site_uuid );
-		if ( $site ) {
-			$this->site_repo->update_telemetry( $site_uuid, $validated );
-		} else {
-			$this->site_repo->upsert( $validated );
-		}
-
-		// Evaluate the action.
 		$decision = $this->evaluate_action( $action, $validated );
 
-		$payload  = $this->signer->build_policy_payload(
+		$response = $this->build_policy_response(
 			$action,
-			$site_uuid,
+			$validated['site_uuid'],
 			$decision['allowed'],
 			$decision['reason'],
 			$decision['message']
 		);
-		$response = $this->signer->build_signed_response( $payload );
 
 		return new WP_REST_Response( $response, 200 );
 	}
 
 	/**
-	 * Handle an immediate booking usage update after a successful client booking.
-	 *
-	 * This keeps the Free Sites dashboard in sync without waiting for the next
-	 * policy fetch or daily sync.
+	 * Handle booking usage report.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response
@@ -263,49 +226,20 @@ class FreePolicyController extends WP_REST_Controller {
 			);
 		}
 
-		$site_uuid     = $validated['site_uuid'];
-		$site_url_hash = sanitize_text_field( (string) ( $validated['site_url_hash'] ?? '' ) );
-		$site          = $this->site_repo->get_by_uuid( $site_uuid );
-		$action        = sanitize_key( (string) $request->get_param( 'action' ) );
-
+		$action = sanitize_key( (string) $request->get_param( 'action' ) );
 		if ( 'booking_created' !== $action || ! $request->has_param( 'booking_count' ) ) {
 			return new WP_REST_Response(
-				array(
-					'success' => false,
-					'message' => __( 'A valid booking_created usage payload is required.', 'bangla-track-server' ),
-				),
+				array( 'success' => false, 'message' => __( 'A valid booking_created usage payload is required.', 'bangla-track-server' ) ),
 				200
 			);
 		}
 
-		if (
-			$site
-			&& ! empty( $site->site_url_hash )
-			&& ! empty( $site_url_hash )
-			&& ! hash_equals( (string) $site->site_url_hash, $site_url_hash )
-		) {
-			return new WP_REST_Response(
-				array(
-					'success' => false,
-					'message' => __( 'Site UUID does not match the registered site hash.', 'bangla-track-server' ),
-				),
-				200
-			);
-		}
-
-		if ( $site ) {
-			$this->site_repo->update_telemetry( $site_uuid, $validated );
-		} else {
-			$this->site_repo->upsert( $validated );
-		}
-
-		$payload  = $this->signer->build_policy_payload(
+		$response = $this->build_policy_response(
 			'booking_created',
-			$site_uuid,
+			$validated['site_uuid'],
 			true,
 			'usage_recorded'
 		);
-		$response = $this->signer->build_signed_response( $payload );
 
 		$response['success']       = true;
 		$response['booking_count'] = absint( $validated['booking_count'] );
@@ -315,9 +249,6 @@ class FreePolicyController extends WP_REST_Controller {
 
 	/**
 	 * Handle site deactivation.
-	 *
-	 * Called when the free plugin is deactivated. Best-effort: the client
-	 * never blocks deactivation on errors.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response
@@ -331,19 +262,48 @@ class FreePolicyController extends WP_REST_Controller {
 			);
 		}
 
-		$site_uuid = $validated['site_uuid'];
-
-		$this->site_repo->deactivate( $site_uuid );
-
-		$payload  = $this->signer->build_policy_payload(
+		$response = $this->build_policy_response(
 			'site_deactivate',
-			$site_uuid,
+			$validated['site_uuid'],
 			true,
 			'deactivated'
 		);
-		$response = $this->signer->build_signed_response( $payload );
 
 		return new WP_REST_Response( $response, 200 );
+	}
+
+	/**
+	 * Build a plain (unsigned) policy response.
+	 *
+	 * @param string $action   Action name.
+	 * @param string $site_uuid Site UUID.
+	 * @param bool   $allowed  Whether action is allowed.
+	 * @param string $reason   Reason code.
+	 * @param string $message  Human message.
+	 * @return array
+	 */
+	private function build_policy_response( $action, $site_uuid, $allowed, $reason, $message = '' ) {
+		$payload = array(
+			'allowed'    => (bool) $allowed,
+			'action'     => sanitize_key( (string) $action ),
+			'site_uuid'  => sanitize_text_field( (string) $site_uuid ),
+			'plan'       => 'free',
+			'limits'     => array(
+				'max_bookings'         => self::FREE_MAX_BOOKINGS,
+				'max_active_providers' => self::FREE_MAX_ACTIVE_PROVIDERS,
+			),
+			'reason'     => sanitize_key( (string) $reason ),
+			'expires_at' => time() + HOUR_IN_SECONDS,
+		);
+
+		if ( ! empty( $message ) ) {
+			$payload['message'] = sanitize_text_field( (string) $message );
+		}
+
+		return array(
+			'payload'   => $payload,
+			'signature' => '', // No longer signed — API key auth used instead.
+		);
 	}
 
 	/**
@@ -370,7 +330,7 @@ class FreePolicyController extends WP_REST_Controller {
 		// Booking limit check.
 		$booking_actions = array( 'create_booking', 'bulk_booking' );
 		if ( in_array( $action, $booking_actions, true ) ) {
-			if ( $booking_count >= FreePolicySigner::FREE_MAX_BOOKINGS ) {
+			if ( $booking_count >= self::FREE_MAX_BOOKINGS ) {
 				return array(
 					'allowed' => false,
 					'reason'  => 'max_bookings_reached',
@@ -382,7 +342,7 @@ class FreePolicyController extends WP_REST_Controller {
 		// Provider limit check.
 		$provider_actions = array( 'activate_provider', 'save_provider_settings' );
 		if ( in_array( $action, $provider_actions, true ) ) {
-			if ( $provider_count >= FreePolicySigner::FREE_MAX_ACTIVE_PROVIDERS ) {
+			if ( $provider_count >= self::FREE_MAX_ACTIVE_PROVIDERS ) {
 				return array(
 					'allowed' => false,
 					'reason'  => 'max_active_providers_reached',

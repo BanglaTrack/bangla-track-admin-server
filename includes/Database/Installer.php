@@ -136,12 +136,16 @@ class Installer {
 
         CREATE TABLE {$activations_table} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-            license_id BIGINT(20) UNSIGNED NOT NULL,
+            license_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
             site_url VARCHAR(255) NOT NULL,
             site_name VARCHAR(255) DEFAULT '',
+            plan_code VARCHAR(32) NOT NULL DEFAULT 'free',
             wp_version VARCHAR(20) DEFAULT '',
+            wc_version VARCHAR(20) DEFAULT '',
             plugin_version VARCHAR(20) DEFAULT '',
             php_version VARCHAR(20) DEFAULT '',
+            active_provider_count INT(11) NOT NULL DEFAULT 0,
+            booking_count INT(11) NOT NULL DEFAULT 0,
             status ENUM('active','inactive') NOT NULL DEFAULT 'active',
             activated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -150,7 +154,8 @@ class Installer {
             PRIMARY KEY (id),
             UNIQUE KEY license_site (license_id, site_url),
             KEY status (status),
-            KEY license_id (license_id)
+            KEY license_id (license_id),
+            KEY plan_code (plan_code)
         ) {$charset_collate};
 
         CREATE TABLE {$usage_table} (

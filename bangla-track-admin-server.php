@@ -24,6 +24,12 @@ define( 'BT_SERVER_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BT_SERVER_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'BT_SERVER_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
+// Shared API key for REST header authentication (X-BT-API-Key).
+// Must match BANGLA_TRACK_API_KEY in the client plugin.
+if ( ! defined( 'BT_SERVER_API_KEY' ) ) {
+    define( 'BT_SERVER_API_KEY', 'bt_live_sk_2026_bAngL4Tr4cK_s3rv3r_k3y_x9Qm2pL7' );
+}
+
 require_once BT_SERVER_PLUGIN_DIR . 'includes/Autoloader.php';
 \BanglaTrackServer\Autoloader::register();
 
