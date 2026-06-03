@@ -154,11 +154,16 @@ class SiteCheckinController extends WP_REST_Controller {
 			'plan_code'             => sanitize_key( (string) $request->get_param( 'plan_code' ) ) ?: 'free',
 		);
 
+		global $wpdb;
 		$activation_id = $this->activation_repo->checkin_free_site( $site_data );
 
 		if ( ! $activation_id ) {
 			return new WP_REST_Response(
-				array( 'success' => false, 'message' => __( 'Check-in failed.', 'bangla-track-server' ) ),
+				array(
+					'success'  => false,
+					'message'  => __( 'Check-in failed.', 'bangla-track-server' ),
+					'db_error' => $wpdb->last_error,
+				),
 				500
 			);
 		}
