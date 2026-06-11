@@ -1,9 +1,13 @@
 name: Deploy Plugin To cPanel
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -14,10 +18,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Verify deployment secrets
+        env:
+          CPANEL_HOST: ${{ secrets.CPANEL_HOST }}
+          CPANEL_PORT: ${{ secrets.CPANEL_PORT }}
+          CPANEL_USER: ${{ secrets.CPANEL_USER }}
+          CPANEL_SSH_KEY: ${{ secrets.CPANEL_SSH_KEY }}
+          CPANEL_PLUGIN_PATH: ${{ secrets.CPANEL_PLUGIN_PATH }}
+        run: |
+          test -n "$CPANEL_HOST" || { echo "CPANEL_HOST is missing"; exit 1; }
+          test -n "$CPANEL_PORT" || { echo "CPANEL_PORT is missing"; exit 1; }
+          test -n "$CPANEL_USER" || { echo "CPANEL_USER is missing"; exit 1; }
+          test -n "$CPANEL_SSH_KEY" || { echo "CPANEL_SSH_KEY is missing"; exit 1; }
+          test -n "$CPANEL_PLUGIN_PATH" || { echo "CPANEL_PLUGIN_PATH is missing"; exit 1; }
+
       - name: Build deployment archive
         run: |
           tar --exclude-vcs --exclude-from='.rsyncignore' --exclude='plugin.tar.gz' -czf /tmp/plugin.tar.gz .
           mv /tmp/plugin.tar.gz plugin.tar.gz
+
+      - name: Prepare target directory
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.CPANEL_HOST }}
+          port: ${{ secrets.CPANEL_PORT }}
+          username: ${{ secrets.CPANEL_USER }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          script: |
+            set -e
+            mkdir -p "${{ secrets.CPANEL_PLUGIN_PATH }}"
 
       - name: Upload archive via SCP
         uses: appleboy/scp-action@v1
