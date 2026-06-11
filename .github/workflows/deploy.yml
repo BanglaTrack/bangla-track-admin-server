@@ -28,6 +28,7 @@ jobs:
           key: ${{ secrets.CPANEL_SSH_KEY }}
           source: plugin.tar.gz
           target: ${{ secrets.CPANEL_PLUGIN_PATH }}
+          debug: true
 
       - name: Extract archive on server
         uses: appleboy/ssh-action@v1
@@ -36,6 +37,7 @@ jobs:
           port: ${{ secrets.CPANEL_PORT }}
           username: ${{ secrets.CPANEL_USER }}
           key: ${{ secrets.CPANEL_SSH_KEY }}
+          debug: true
           script: |
             set -e
             cd "${{ secrets.CPANEL_PLUGIN_PATH }}"
