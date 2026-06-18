@@ -241,7 +241,7 @@ class PluginReleasesPage {
                         </div>
 
                         <button type="submit" class="button button-primary button-large" style="width: 100%; justify-content: center; display: flex; align-items: center; height: 40px; font-size: 14px;">
-                            <span class="dashicons dashicons-upload" style="margin-right: 5px; margin-top: 3px;"></span>
+                            <span class="dashicons dashicons-upload" style="margin-right: 5px; line-height: 1;"></span>
                             <?php esc_html_e( 'Publish Release', 'bangla-track-server' ); ?>
                         </button>
                     </form>
@@ -286,8 +286,8 @@ class PluginReleasesPage {
                         </div>
 
                         <div style="margin-top: 15px; display: flex; gap: 10px;">
-                            <a class="button button-secondary" style="height: 34px; line-height: 32px;" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=bt_admin_download_release&release_id=' . absint( $active_release->id ) ), 'bt_admin_download_release_' . absint( $active_release->id ) ) ); ?>">
-                                <span class="dashicons dashicons-download" style="margin-top: 5px;"></span>
+                            <a class="button button-secondary" style="height: 34px; line-height: 1;" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=bt_admin_download_release&release_id=' . absint( $active_release->id ) ), 'bt_admin_download_release_' . absint( $active_release->id ) ) ); ?>">
+                                <span class="dashicons dashicons-download"></span>
                                 <?php esc_html_e( 'Download ZIP', 'bangla-track-server' ); ?>
                             </a>
                         </div>
