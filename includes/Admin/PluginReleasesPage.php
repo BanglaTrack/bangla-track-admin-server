@@ -241,7 +241,7 @@ class PluginReleasesPage {
                         </div>
 
                         <button type="submit" class="button button-primary button-large" style="width: 100%; justify-content: center; display: flex; align-items: center; height: 40px; font-size: 14px;">
-                            <span class="dashicons dashicons-upload" style="margin-right: 5px; line-height: 1;"></span>
+                            <span class="dashicons dashicons-upload" style="font-size: 18px; width: 18px; height: 18px; line-height: 18px; margin: 0; display: inline-block;"></span>
                             <?php esc_html_e( 'Publish Release', 'bangla-track-server' ); ?>
                         </button>
                     </form>
