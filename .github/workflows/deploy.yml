@@ -1,4 +1,4 @@
-name: Deploy Plugin To cPanel via FTP
+name: Deploy Plugin To cPanel via SSH
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   deploy:
-    name: FTP Deploy
+    name: SSH Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -20,29 +20,59 @@ jobs:
 
       - name: Verify deployment secrets
         env:
-          FTP_SERVER: ${{ secrets.FTP_SERVER }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          CPANEL_HOST: ${{ secrets.CPANEL_HOST }}
+          CPANEL_PORT: ${{ secrets.CPANEL_PORT }}
+          CPANEL_USER: ${{ secrets.CPANEL_USER }}
+          CPANEL_SSH_KEY: ${{ secrets.CPANEL_SSH_KEY }}
           CPANEL_PLUGIN_PATH: ${{ secrets.CPANEL_PLUGIN_PATH }}
         run: |
-          test -n "$FTP_SERVER" || { echo "FTP_SERVER is missing"; exit 1; }
-          test -n "$FTP_USERNAME" || { echo "FTP_USERNAME is missing"; exit 1; }
-          test -n "$FTP_PASSWORD" || { echo "FTP_PASSWORD is missing"; exit 1; }
+          test -n "$CPANEL_HOST" || { echo "CPANEL_HOST is missing"; exit 1; }
+          test -n "$CPANEL_PORT" || { echo "CPANEL_PORT is missing"; exit 1; }
+          test -n "$CPANEL_USER" || { echo "CPANEL_USER is missing"; exit 1; }
+          test -n "$CPANEL_SSH_KEY" || { echo "CPANEL_SSH_KEY is missing"; exit 1; }
           test -n "$CPANEL_PLUGIN_PATH" || { echo "CPANEL_PLUGIN_PATH is missing"; exit 1; }
 
-      - name: Deploy files via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Build deployment archive
+        run: |
+          tar --exclude-vcs --exclude-from='.rsyncignore' --exclude='plugin.tar.gz' -czf /tmp/plugin.tar.gz .
+          mv /tmp/plugin.tar.gz plugin.tar.gz
+
+      - name: Prepare target directory
+        uses: appleboy/ssh-action@v1
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.CPANEL_PLUGIN_PATH }}/
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/.vscode/**
-            **/.idea/**
-            **/composer.json
-            **/composer.lock
-            **/package.json
-            **/package-lock.json
+          host: ${{ secrets.CPANEL_HOST }}
+          port: ${{ secrets.CPANEL_PORT }}
+          username: ${{ secrets.CPANEL_USER }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          script: |
+            set -e
+            mkdir -p "${{ secrets.CPANEL_PLUGIN_PATH }}"
+
+      - name: Upload archive via SCP
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.CPANEL_HOST }}
+          port: ${{ secrets.CPANEL_PORT }}
+          username: ${{ secrets.CPANEL_USER }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          source: plugin.tar.gz
+          target: ${{ secrets.CPANEL_PLUGIN_PATH }}
+          debug: true
+
+      - name: Extract archive on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.CPANEL_HOST }}
+          port: ${{ secrets.CPANEL_PORT }}
+          username: ${{ secrets.CPANEL_USER }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          debug: true
+          script: |
+            set -e
+            cd "${{ secrets.CPANEL_PLUGIN_PATH }}"
+            command -v tar >/dev/null 2>&1 || { echo "tar not found on remote host"; exit 1; }
+            tar -xzf plugin.tar.gz
+            # Keep deployment/control artifacts out of live plugin directory.
+            rm -rf .git .github
+            rm -f .rsyncignore
+            rm -f plugin.tar.gz
