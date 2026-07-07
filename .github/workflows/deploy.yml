@@ -32,6 +32,11 @@ jobs:
           test -n "$CPANEL_SSH_KEY" || { echo "CPANEL_SSH_KEY is missing"; exit 1; }
           test -n "$CPANEL_PLUGIN_PATH" || { echo "CPANEL_PLUGIN_PATH is missing"; exit 1; }
 
+      - name: Get runner IP address
+        run: |
+          echo "GitHub Actions Runner Public IP:"
+          curl -s https://icanhazip.com || curl -s https://ifconfig.me || echo "Could not determine IP"
+
       - name: Build deployment archive
         run: |
           tar --exclude-vcs --exclude-from='.rsyncignore' --exclude='plugin.tar.gz' -czf /tmp/plugin.tar.gz .
